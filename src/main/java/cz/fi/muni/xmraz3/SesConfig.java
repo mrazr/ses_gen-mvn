@@ -1,6 +1,5 @@
 package cz.fi.muni.xmraz3;
 
-import com.beust.jcommander.IStringConverter;
 import com.beust.jcommander.Parameter;
 
 public class SesConfig {

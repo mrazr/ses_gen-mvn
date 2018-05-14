@@ -13,7 +13,10 @@ import smile.neighbor.KDTree;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
-
+/**
+ * Class holding the data of the SES
+ * @author radoslav
+ */
 public class Surface {
     public static double refineFac = 1.6;
     public static  double maxEdgeLen = 0.7;
