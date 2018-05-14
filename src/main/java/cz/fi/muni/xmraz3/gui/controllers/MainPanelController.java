@@ -497,7 +497,7 @@ public class MainPanelController {
         btnTriangulate.disableProperty().set(true);
         SesConfig.edgeLimit = spinnerEdgeLength.getValue();
         FXMLLoader loader = new FXMLLoader();
-        loader.setLocation(MainPanel.class.getResource("layout/AtomLoadingView.fxml"));
+        loader.setLocation(MainPanel.class.getResource("/fxml/AtomLoadingView.fxml"));
         try {
             String raw = SurfaceParser.loadFile(folder + "/info.json");
             SurfaceParser.parseSesConfig(raw);

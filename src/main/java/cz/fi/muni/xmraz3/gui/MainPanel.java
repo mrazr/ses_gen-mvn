@@ -28,7 +28,7 @@ public class MainPanel extends Application {
     public void start(Stage primaryStage) {
         MainPanelController.root = primaryStage;
         FXMLLoader loader = new FXMLLoader();
-        loader.setLocation(MainPanel.class.getResource("layout/MainPanelView.fxml"));
+        loader.setLocation(MainPanel.class.getResource("/fxml/MainPanelView.fxml"));
         AnchorPane pane = null;
         try {
             pane = (AnchorPane) loader.load();
