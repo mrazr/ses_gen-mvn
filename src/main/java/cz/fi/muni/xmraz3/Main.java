@@ -3,8 +3,14 @@ package cz.fi.muni.xmraz3;
 import com.beust.jcommander.JCommander;
 import com.beust.jcommander.Parameter;
 import com.beust.jcommander.ParameterException;
+import com.jogamp.common.os.Platform;
 import cz.fi.muni.xmraz3.gui.MainPanel;
+import cz.fi.muni.xmraz3.mesh.MeshGeneration;
+import javafx.scene.shape.Mesh;
 
+import java.io.BufferedWriter;
+import java.io.FileWriter;
+import java.io.IOException;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.nio.file.Files;
@@ -39,7 +45,7 @@ public class Main {
         } else {
             if (SesConfig.inputFolder == null){
                 jc.usage();
-                return;
+                returnv;
             }
             //try {
             //    System.in.read();
@@ -49,6 +55,31 @@ public class Main {
             String raw = SurfaceParser.loadFile(Paths.get(SesConfig.inputFolder).resolve("info.json").toString());
             SurfaceParser.parseSesConfig(raw);
             SurfaceParser.ses_start(SesConfig.inputFolder);
+            writeResults();
+        }
+    }
+
+    private static void writeResults(){
+        Runtime r = Runtime.getRuntime();
+        long totalHeap = r.totalMemory();
+        long usedHeap = totalHeap - r.freeMemory();
+	float _usedHeap = (float)Math.ceil(usedHeap / (1024 * 1024));
+        try (FileWriter fw = new FileWriter(Paths.get(SesConfig.inputFolder).getFileName().toString() + ".txt", true)){
+            fw.write(Double.toString(SesConfig.edgeLimit));
+            fw.write(" & ");
+            fw.write(Long.toString(MeshGeneration.convexMeshTime));
+            fw.write(" & ");
+            fw.write(Long.toString(MeshGeneration.concaveMeshTime));
+            fw.write(" & ");
+            fw.write(Long.toString(MeshGeneration.toriMeshTime));
+            fw.write(" & ");
+            fw.write(Long.toString(MeshGeneration.trianglesGenerated.get()));
+            fw.write(" & ");
+            fw.write(Float.toString(_usedHeap));
+            fw.write("\\\\");
+            fw.write(Platform.getNewline());
+        } catch (IOException e){
+            e.printStackTrace();
         }
     }
 }

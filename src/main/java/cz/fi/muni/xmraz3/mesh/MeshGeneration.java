@@ -17,7 +17,7 @@ public class MeshGeneration {
     public static MeshGeneration instance = new MeshGeneration();
     private static AtomicInteger threads_done = new AtomicInteger(0);
 
-    private static AtomicInteger trianglesGenerated = new AtomicInteger(0);
+    public static AtomicInteger trianglesGenerated = new AtomicInteger(0);
     private static int[] _triangles;
     public static AtomicBoolean free = new AtomicBoolean(true);
     public static AtomicBoolean finished = new AtomicBoolean(false);
@@ -31,20 +31,18 @@ public class MeshGeneration {
     }
     private static AdvancingFrontMethod[] afms;
 
+    public static long convexMeshTime = 0;
+    public static long concaveMeshTime = 0;
+    public static long toriMeshTime = 0;
+
     private MeshGeneration(){
         THREAD_COUNT = Runtime.getRuntime().availableProcessors();
-        //System.out.println("Initializing MeshGeneration with " + THREAD_COUNT + " threads");
         v = new Vector[THREAD_COUNT];
         afms = new AdvancingFrontMethod[THREAD_COUNT];
         for (int i = 0; i < THREAD_COUNT; ++i){
             afms[i] = new AdvancingFrontMethod();
         }
-        //v[0] = new Vector(0, 0, 0);
-        //v[1] = new Vector(0, 0, 0);
-        //v[2] = new Vector(0, 0, 0);
-        //v[3] = new Vector(0, 0, 0);
         _triangles = new int[THREAD_COUNT];
-        //_triangles[0] = _triangles[1] = _triangles[2] = _triangles[3] = 0;
         for (int i = 0; i < THREAD_COUNT; ++i){
             _triangles[i] = 0;
             v[i] = new Vector(0, 0, 0);
@@ -57,11 +55,10 @@ public class MeshGeneration {
 
     private static void generateMesh(int start, int end, List<SphericalPatch> patches, int threadIdx) {
         free.set(false);
-        AdvancingFrontMethod afm = afms[threadIdx];//new AdvancingFrontMethod();
+        AdvancingFrontMethod afm = afms[threadIdx];
         long startTime = System.currentTimeMillis();
         for (int i = start; i < end; ++i) {
             SphericalPatch a = patches.get(i);
-            //a.arcPointCount = a.vertices.size();
             if (!a.valid){
                 continue;
             }
@@ -76,9 +73,8 @@ public class MeshGeneration {
                     do {
                         afm._newMesh();
                     } while (!afm.atomComplete);
-                    //a.dbFaces.addAll(a.faces);
-                    if (afm.loop){
-                        System.out.println((a.convexPatch) ? "convex " + i + "looped" : "concave" + i + " looped");
+                    if (afm.loop && SesConfig.verbose){
+                        System.out.println((a.convexPatch) ? "convex " + i + " looped" : "concave " + i + " looped");
                     }
                     a.meshed = true;
                     afm.transferFacesToPatch();
@@ -86,12 +82,19 @@ public class MeshGeneration {
                 }
             }
         }
-        System.out.println("AFM on threadIdx: " + threadIdx + " used edgePool of " + afm.edgePool.size() + " edges");
+        //System.out.println("AFM on threadIdx: " + threadIdx + " used edgePool of " + afm.edgePool.size() + " edges");
         long endTime = System.currentTimeMillis();
-        System.out.println("Thread idx: " + threadIdx + " - " + ((patches.get(0).convexPatch) ? "Convex" : "Concave" ) + " patches meshed in " + (endTime - startTime) + " ms");
+        //System.out.println("Thread idx: " + threadIdx + " - " + ((patches.get(0).convexPatch) ? "Convex" : "Concave" ) + " patches meshed in " + (endTime - startTime) + " ms");
         threads_done.incrementAndGet();
         if (threads_done.get() == THREAD_COUNT){
-            System.out.println(((patches.get(0).convexPatch) ? "Convex" : "Concave" ) + " patches meshed in " + (endTime - startTime) + " ms");
+            if (SesConfig.verbose) {
+                System.out.println(((patches.get(0).convexPatch) ? "Convex" : "Concave") + " patches meshed in " + (endTime - startTime) + " ms");
+            }
+            if (patches.get(0).convexPatch){
+                convexMeshTime = (endTime - startTime);
+            } else {
+                concaveMeshTime = (endTime - startTime);
+            }
             free.set(true);
             if (!patches.get(0).convexPatch){
                 //trianglesGenerated.addAndGet(_triangles[0]);
@@ -154,15 +157,16 @@ public class MeshGeneration {
         for (ToroidalPatch tp : Surface.rectangles){
             tp.vertices.clear();
             tp.normals.clear();
-            //tp.faces.clear();
-            //tp.faceCount = 0;
-            //tp.vrts.clear();
             meshToroidalPatch(tp);
             if (tp.faces != null) {
                 _triangles[0] += tp.faces.length / 3;
             }
         }
-        System.out.println("Toroidal patches meshed in " + (System.currentTimeMillis() - startTime) + " milliseconds");
+        long endTime = System.currentTimeMillis();
+        if (SesConfig.verbose) {
+            System.out.println("Toroidal patches meshed in " + (endTime - startTime) + " milliseconds");
+        }
+        toriMeshTime = (endTime - startTime);
         //try {
         //    System.in.read();
         //    System.out.println("After tori mesh");
@@ -205,11 +209,6 @@ public class MeshGeneration {
     private static Arc _right = new Arc(new Point(0, 0, 0), 1.0);
     public static void meshToroidalPatch(ToroidalPatch tp){
         try {
-            /*if ((!circular && concavePatchArcs.size() < 2) || !concavePatchArcs.get(0).valid || !concavePatchArcs.get(1).valid){
-                valid = false;
-                Main.rectangles.remove(this);
-                return;
-            }*/
             if (tp.id == 8165){
                 int a = 3;
             }

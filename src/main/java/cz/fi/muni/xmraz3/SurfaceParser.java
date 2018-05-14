@@ -529,7 +529,7 @@ public class SurfaceParser {
         }
     }
 
-    public static void assignRollingPatchToAtoms(SphericalPatch s1, SphericalPatch s2, ToroidalPatch tp){
+    private static void assignRollingPatchToAtoms(SphericalPatch s1, SphericalPatch s2, ToroidalPatch tp){
         if (!s1.tori.containsKey(s2.id)){
             s1.tori.put(s2.id, new ArrayList<>());
         }
