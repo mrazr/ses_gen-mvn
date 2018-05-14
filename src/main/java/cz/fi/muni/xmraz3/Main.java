@@ -1,18 +1,12 @@
 package cz.fi.muni.xmraz3;
 
 import com.beust.jcommander.JCommander;
-import com.beust.jcommander.Parameter;
 import com.beust.jcommander.ParameterException;
 import com.jogamp.common.os.Platform;
 import cz.fi.muni.xmraz3.gui.MainPanel;
 import cz.fi.muni.xmraz3.mesh.MeshGeneration;
-import javafx.scene.shape.Mesh;
-
-import java.io.BufferedWriter;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.net.URL;
-import java.net.URLClassLoader;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -45,13 +39,8 @@ public class Main {
         } else {
             if (SesConfig.inputFolder == null){
                 jc.usage();
-                returnv;
+                return;
             }
-            //try {
-            //    System.in.read();
-            //} catch (Exception e){
-            //    e.printStackTrace();
-            //}
             String raw = SurfaceParser.loadFile(Paths.get(SesConfig.inputFolder).resolve("info.json").toString());
             SurfaceParser.parseSesConfig(raw);
             SurfaceParser.ses_start(SesConfig.inputFolder);
