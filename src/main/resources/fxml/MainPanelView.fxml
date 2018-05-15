@@ -19,31 +19,33 @@
 <?import javafx.scene.layout.RowConstraints?>
 <?import javafx.scene.layout.VBox?>
 
-<AnchorPane fx:id="root" maxHeight="600.0" maxWidth="300.0" minHeight="600.0" minWidth="300.0" prefHeight="600.0" prefWidth="300.0" xmlns="http://javafx.com/javafx/8.0.161" xmlns:fx="http://javafx.com/fxml/1" fx:controller="cz.fi.muni.xmraz3.gui.controllers.MainPanelController">
+<AnchorPane fx:id="root" maxHeight="600.0" maxWidth="320.0" minHeight="600.0" minWidth="320.0" prefHeight="600.0" prefWidth="320.0" xmlns="http://javafx.com/javafx/8.0.161" xmlns:fx="http://javafx.com/fxml/1" fx:controller="cz.fi.muni.xmraz3.gui.controllers.MainPanelController">
    <children>
-      <ScrollPane fx:id="scrMainPane" minHeight="600.0" minWidth="300.0" prefHeight="800.0" prefWidth="300.0" AnchorPane.bottomAnchor="0.0" AnchorPane.leftAnchor="0.0" AnchorPane.rightAnchor="0.0" AnchorPane.topAnchor="0.0">
+      <ScrollPane fx:id="scrMainPane" minHeight="600.0" prefHeight="800.0" AnchorPane.bottomAnchor="0.0" AnchorPane.leftAnchor="0.0" AnchorPane.rightAnchor="0.0" AnchorPane.topAnchor="0.0">
          <content>
-            <AnchorPane fx:id="anchScrAnchor" prefHeight="599.0" prefWidth="300.0">
+            <AnchorPane fx:id="anchScrAnchor" prefHeight="620.0" prefWidth="320.0">
                <children>
                   <VBox fx:id="vboSettExp" layoutX="10.0" layoutY="349.0" prefHeight="500.0" prefWidth="100.0" AnchorPane.leftAnchor="8.0" AnchorPane.rightAnchor="22.0" AnchorPane.topAnchor="10.0">
                      <children>
-                        <TabPane prefHeight="126.0" prefWidth="270.0" tabClosingPolicy="UNAVAILABLE">
+                        <TabPane prefHeight="227.0" prefWidth="290.0" tabClosingPolicy="UNAVAILABLE">
                           <tabs>
                             <Tab text="Overall Info">
                               <content>
                                 <AnchorPane minHeight="0.0" minWidth="0.0" prefHeight="180.0" prefWidth="200.0">
                                        <children>
-                                          <ScrollPane fx:id="scrOverallInfo" layoutX="38.0" layoutY="-14.0" prefHeight="200.0" prefWidth="200.0" AnchorPane.bottomAnchor="0.0" AnchorPane.leftAnchor="0.0" AnchorPane.rightAnchor="0.0" AnchorPane.topAnchor="0.0">
+                                          <ScrollPane fx:id="scrOverallInfo" layoutY="-14.0" prefHeight="200.0" prefWidth="200.0" AnchorPane.bottomAnchor="0.0" AnchorPane.leftAnchor="0.0" AnchorPane.rightAnchor="0.0" AnchorPane.topAnchor="0.0">
                                              <content>
-                                                <GridPane fx:id="grdOverallInfo">
+                                                <GridPane fx:id="grdOverallInfo" prefHeight="148.0" prefWidth="270.0">
                                                   <columnConstraints>
-                                                    <ColumnConstraints halignment="LEFT" hgrow="SOMETIMES" minWidth="10.0" prefWidth="100.0" />
-                                                    <ColumnConstraints hgrow="SOMETIMES" minWidth="10.0" prefWidth="100.0" />
+                                                    <ColumnConstraints halignment="LEFT" hgrow="SOMETIMES" maxWidth="185.0" minWidth="10.0" prefWidth="185.0" />
+                                                    <ColumnConstraints halignment="CENTER" hgrow="SOMETIMES" maxWidth="129.0" minWidth="10.0" prefWidth="85.0" />
                                                   </columnConstraints>
                                                   <rowConstraints>
                                                     <RowConstraints minHeight="10.0" prefHeight="30.0" vgrow="SOMETIMES" />
                                                     <RowConstraints minHeight="10.0" prefHeight="30.0" vgrow="SOMETIMES" />
-                                                    <RowConstraints minHeight="10.0" prefHeight="30.0" vgrow="SOMETIMES" />
+                                                      <RowConstraints minHeight="10.0" prefHeight="30.0" vgrow="SOMETIMES" />
+                                                      <RowConstraints minHeight="10.0" prefHeight="30.0" vgrow="SOMETIMES" />
+                                                      <RowConstraints minHeight="10.0" prefHeight="30.0" vgrow="SOMETIMES" />
                                                   </rowConstraints>
                                                    <children>
                                                       <Label text="Atom count:">
@@ -58,12 +60,23 @@
                                                       </Label>
                                                       <Label fx:id="lblAtomCount" text="0" GridPane.columnIndex="1" />
                                                       <Label fx:id="lblProbeRadius" text="0" GridPane.columnIndex="1" GridPane.rowIndex="1" />
-                                                      <Label text="Concave patches:" GridPane.rowIndex="2">
+                                                      <Label text="Controls in viewer:" underline="true" GridPane.rowIndex="2">
                                                          <GridPane.margin>
                                                             <Insets left="10.0" />
                                                          </GridPane.margin>
                                                       </Label>
-                                                      <Label text="0" GridPane.columnIndex="1" GridPane.rowIndex="2" />
+                                                      <Label text="Toggle mouse control" GridPane.rowIndex="3">
+                                                         <GridPane.margin>
+                                                            <Insets left="10.0" />
+                                                         </GridPane.margin>
+                                                      </Label>
+                                                      <Label text="ESCAPE" GridPane.columnIndex="1" GridPane.rowIndex="3" />
+                                                      <Label text="Camera move" GridPane.rowIndex="4">
+                                                         <padding>
+                                                            <Insets left="10.0" />
+                                                         </padding>
+                                                      </Label>
+                                                      <Label text="W,S,A,D" GridPane.columnIndex="1" GridPane.rowIndex="4" />
                                                    </children>
                                                 </GridPane>
                                              </content>
@@ -76,7 +89,7 @@
                                 <content>
                                   <AnchorPane minHeight="0.0" minWidth="0.0" prefHeight="180.0" prefWidth="200.0">
                                        <children>
-                                          <GridPane layoutX="8.0" layoutY="2.0" prefHeight="90.0" prefWidth="255.0">
+                                          <GridPane layoutX="11.0" layoutY="1.0" prefHeight="176.0" prefWidth="255.0">
                                             <columnConstraints>
                                               <ColumnConstraints hgrow="SOMETIMES" minWidth="10.0" prefWidth="100.0" />
                                               <ColumnConstraints hgrow="SOMETIMES" minWidth="10.0" prefWidth="100.0" />
@@ -85,14 +98,22 @@
                                               <RowConstraints minHeight="10.0" prefHeight="30.0" vgrow="SOMETIMES" />
                                               <RowConstraints minHeight="10.0" prefHeight="30.0" vgrow="SOMETIMES" />
                                               <RowConstraints minHeight="10.0" prefHeight="30.0" vgrow="SOMETIMES" />
+                                                <RowConstraints minHeight="10.0" prefHeight="30.0" vgrow="SOMETIMES" />
+                                                <RowConstraints minHeight="10.0" prefHeight="30.0" vgrow="SOMETIMES" />
+                                                <RowConstraints minHeight="10.0" prefHeight="30.0" vgrow="SOMETIMES" />
                                             </rowConstraints>
                                              <children>
                                                 <Label text="Atom color" />
                                                 <Label text="Triangle color" GridPane.rowIndex="1" />
                                                 <Label text="Torus color" GridPane.rowIndex="2" />
-                                                <ColorPicker fx:id="atomColorPick" GridPane.columnIndex="1" />
-                                                <ColorPicker fx:id="triangleColorPick" GridPane.columnIndex="1" GridPane.rowIndex="1" />
-                                                <ColorPicker fx:id="torusColorPick" GridPane.columnIndex="1" GridPane.rowIndex="2" />
+                                                <ColorPicker fx:id="atomColorPick" disable="true" GridPane.columnIndex="1" />
+                                                <ColorPicker fx:id="triangleColorPick" disable="true" GridPane.columnIndex="1" GridPane.rowIndex="1" />
+                                                <ColorPicker fx:id="torusColorPick" disable="true" GridPane.columnIndex="1" GridPane.rowIndex="2" />
+                                                <Slider fx:id="sldAmbientStrength" disable="true" GridPane.columnIndex="1" GridPane.rowIndex="4" />
+                                                <Label text="Color strength" GridPane.rowIndex="4" />
+                                                <Button fx:id="btnResetColors" disable="true" mnemonicParsing="false" text="Reset colors" GridPane.columnIndex="1" GridPane.rowIndex="5" />
+                                                <CheckBox fx:id="chkUseMonoColor" disable="true" mnemonicParsing="false" text="Mono color" GridPane.rowIndex="3" />
+                                                <ColorPicker fx:id="monoColorPick" disable="true" GridPane.columnIndex="1" GridPane.rowIndex="3" />
                                              </children>
                                           </GridPane>
                                        </children>
@@ -115,7 +136,6 @@
                                                         <rowConstraints>
                                                           <RowConstraints minHeight="10.0" prefHeight="30.0" vgrow="SOMETIMES" />
                                                           <RowConstraints minHeight="10.0" prefHeight="30.0" vgrow="SOMETIMES" />
-                                                          <RowConstraints minHeight="10.0" prefHeight="30.0" vgrow="SOMETIMES" />
                                                             <RowConstraints minHeight="10.0" prefHeight="30.0" vgrow="SOMETIMES" />
                                                             <RowConstraints minHeight="10.0" prefHeight="30.0" vgrow="SOMETIMES" />
                                                             <RowConstraints minHeight="10.0" prefHeight="30.0" vgrow="SOMETIMES" />
@@ -127,19 +147,13 @@
                                                                   <Insets left="10.0" />
                                                                </padding>
                                                             </Label>
-                                                            <Label style="-fx-padding: 0;" text="Atom name" GridPane.rowIndex="1">
-                                                               <padding>
-                                                                  <Insets left="10.0" />
-                                                               </padding>
-                                                            </Label>
                                                             <Label fx:id="lblAtomRadius" text="Label" GridPane.columnIndex="1" />
-                                                            <Label text="Label" GridPane.columnIndex="1" GridPane.rowIndex="1" />
-                                                            <Label text="Boundary count:" GridPane.rowIndex="2">
+                                                            <Label text="Boundary count:" GridPane.rowIndex="1">
                                                                <padding>
                                                                   <Insets left="10.0" />
                                                                </padding>
                                                             </Label>
-                                                            <Label fx:id="lblBoundaryCount" text="Label" GridPane.columnIndex="1" GridPane.rowIndex="2" />
+                                                            <Label fx:id="lblBoundaryCount" text="Label" GridPane.columnIndex="1" GridPane.rowIndex="1" />
                                                          </children>
                                                       </GridPane>
                                                    </children>
@@ -176,7 +190,7 @@
                                        </children>
                                     </GridPane>
                                     <Label text="Folder" AnchorPane.leftAnchor="0.0" AnchorPane.topAnchor="4.0" />
-                                    <TextField fx:id="txtFolder" AnchorPane.leftAnchor="48.0" AnchorPane.topAnchor="0.0" />
+                                    <TextField fx:id="txtFolder" AnchorPane.leftAnchor="48.0" AnchorPane.rightAnchor="65.0" AnchorPane.topAnchor="0.0" />
                                     <Button fx:id="btnOpenFolder" mnemonicParsing="false" text="Button" AnchorPane.rightAnchor="0.0" AnchorPane.topAnchor="0.0" />
                                     <Label layoutX="10.0" layoutY="48.0" text="Max. triangle edge length" AnchorPane.leftAnchor="0.0" AnchorPane.topAnchor="48.0" />
                                     <Spinner fx:id="spinnerEdgeLength" editable="true" layoutX="195.0" layoutY="44.0" maxWidth="80.0" minWidth="80.0" prefHeight="26.0" prefWidth="80.0" AnchorPane.rightAnchor="0.0" AnchorPane.topAnchor="44.0" />

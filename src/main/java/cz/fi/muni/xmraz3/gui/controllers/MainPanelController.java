@@ -79,6 +79,8 @@ public class MainPanelController {
     @FXML
     private Slider sldProbeAlpha;
     @FXML
+    private Slider sldAmbientStrength;
+    @FXML
     private ScrollPane scrMainPane;
     @FXML
     private AnchorPane anchScrAnchor;
@@ -111,11 +113,18 @@ public class MainPanelController {
     @FXML
     private ColorPicker torusColorPick;
     @FXML
+    private ColorPicker monoColorPick;
+    @FXML
+    private Button btnResetColors;
+    @FXML
+    private CheckBox chkUseMonoColor;
+    @FXML
     private Slider sldMouseSensitivity;
     private boolean tlpExclusiveExpand = false;
     private boolean updateEdgeAngle = true;
     public static Stage root;
     public static MainPanelController cont;
+    private static final int tbpHeight = 160;
     @FXML
     public void initialize(){
         cont = this;
@@ -126,31 +135,25 @@ public class MainPanelController {
             @Override
             public void handle(ActionEvent event) {
                 DirectoryChooser dch = new DirectoryChooser();
-                //dch.setInitialDirectory(new File(File.listRoots()[0].toString()));
-                //dch.setInitialDirectory(new File("C:\\"));
                 dch.setInitialDirectory(new File(System.getProperty("user.dir")));
                 dch.setTitle("Choose folder with json files");
                 File selectedFolder = dch.showDialog(root);
                 if (selectedFolder == null){
                     return;
                 }
-                //if ()
                 txtFolder.setText(selectedFolder.getAbsolutePath());
                 ActionEvent ae = new ActionEvent();
                 txtFolder.fireEvent(ae);
-                //txtFolder.fireEvent();
-                //startParsingJSON(selectedFolder.getAbsolutePath());
             }
         });
-        //atomColorPick.setValue(Color.rgb(197, 20, 20));
-        //atomColorPick.setValue(Color.valueOf("Gray"));
         atomColorPick.setValue(Color.rgb(204, 102, 51));
         triangleColorPick.setValue(Color.rgb(31, 143, 0));
         torusColorPick.setValue(Color.rgb(51, 77, 179));
+        monoColorPick.setValue(atomColorPick.getValue());
         atomColorPick.valueProperty().addListener(new ChangeListener<Color>() {
             @Override
             public void changed(ObservableValue<? extends Color> observable, Color oldValue, Color newValue) {
-                if (MainWindow.mainWindow != null) {
+                if (MainWindow.mainWindow != null && !chkUseMonoColor.isSelected()) {
                     MainWindow.mainWindow.changeColor(0, (float) newValue.getRed(), (float) newValue.getGreen(), (float) newValue.getBlue());
                 }
             }
@@ -159,7 +162,7 @@ public class MainPanelController {
         triangleColorPick.valueProperty().addListener(new ChangeListener<Color>() {
             @Override
             public void changed(ObservableValue<? extends Color> observable, Color oldValue, Color newValue) {
-                if (MainWindow.mainWindow != null) {
+                if (MainWindow.mainWindow != null && !chkUseMonoColor.isSelected()) {
                     MainWindow.mainWindow.changeColor(1, (float) newValue.getRed(), (float) newValue.getGreen(), (float) newValue.getBlue());
                 }
             }
@@ -168,8 +171,48 @@ public class MainPanelController {
         torusColorPick.valueProperty().addListener(new ChangeListener<Color>() {
             @Override
             public void changed(ObservableValue<? extends Color> observable, Color oldValue, Color newValue) {
-                if (MainWindow.mainWindow != null) {
+                if (MainWindow.mainWindow != null && !chkUseMonoColor.isSelected()) {
                     MainWindow.mainWindow.changeColor(2, (float) newValue.getRed(), (float) newValue.getGreen(), (float) newValue.getBlue());
+                }
+            }
+        });
+
+        monoColorPick.valueProperty().addListener(new ChangeListener<Color>() {
+            @Override
+            public void changed(ObservableValue<? extends Color> observable, Color oldValue, Color newValue) {
+                if (chkUseMonoColor.isSelected()){
+                    MainWindow.mainWindow.changeColor(0, (float) monoColorPick.getValue().getRed(), (float) monoColorPick.getValue().getGreen(), (float) monoColorPick.getValue().getBlue());
+                    MainWindow.mainWindow.changeColor(1, (float) monoColorPick.getValue().getRed(), (float) monoColorPick.getValue().getGreen(), (float) monoColorPick.getValue().getBlue());
+                    MainWindow.mainWindow.changeColor(2, (float) monoColorPick.getValue().getRed(), (float) monoColorPick.getValue().getGreen(), (float) monoColorPick.getValue().getBlue());
+                }
+            }
+        });
+
+        btnResetColors.setOnAction(new EventHandler<ActionEvent>() {
+            @Override
+            public void handle(ActionEvent event) {
+                atomColorPick.setValue(Color.rgb(204, 102, 51));
+                triangleColorPick.setValue(Color.rgb(31, 143, 0));
+                torusColorPick.setValue(Color.rgb(51, 77, 179));
+                monoColorPick.setValue(atomColorPick.getValue());
+            }
+        });
+        chkUseMonoColor.selectedProperty().addListener(new ChangeListener<Boolean>() {
+            @Override
+            public void changed(ObservableValue<? extends Boolean> observable, Boolean oldValue, Boolean newValue) {
+                if (MainWindow.mainWindow != null) {
+                    if (newValue.booleanValue()) {
+                        if (MainWindow.mainWindow != null) {
+                            MainWindow.mainWindow.changeColor(0, (float) monoColorPick.getValue().getRed(), (float) monoColorPick.getValue().getGreen(), (float) monoColorPick.getValue().getBlue());
+                            MainWindow.mainWindow.changeColor(1, (float) monoColorPick.getValue().getRed(), (float) monoColorPick.getValue().getGreen(), (float) monoColorPick.getValue().getBlue());
+                            MainWindow.mainWindow.changeColor(2, (float) monoColorPick.getValue().getRed(), (float) monoColorPick.getValue().getGreen(), (float) monoColorPick.getValue().getBlue());
+                        }
+                    } else {
+                        MainWindow.mainWindow.changeColor(0, (float) atomColorPick.getValue().getRed(), (float) atomColorPick.getValue().getGreen(), (float) atomColorPick.getValue().getBlue());
+                        MainWindow.mainWindow.changeColor(1, (float) triangleColorPick.getValue().getRed(), (float) triangleColorPick.getValue().getGreen(), (float) triangleColorPick.getValue().getBlue());
+                        MainWindow.mainWindow.changeColor(2, (float) torusColorPick.getValue().getRed(), (float) torusColorPick.getValue().getGreen(), (float) torusColorPick.getValue().getBlue());
+
+                    }
                 }
             }
         });
@@ -197,13 +240,11 @@ public class MainPanelController {
                 SurfaceParser.remesh();
             }
         });
-        //txtFolder.setPromptText("Directory with atoms, rectangles, triangles, info JSON files");
         txtFolder.setOnAction(new EventHandler<ActionEvent>() {
             @Override
             public void handle(ActionEvent event) {
                 File f = new File(txtFolder.getText());
                 if (!f.exists() || !f.isDirectory()){
-                    //txtFolder.setText("No valid directory entered");
                     scrMainPane.requestFocus();
                     txtFolder.setPromptText("No valid directory entered");
                     return;
@@ -218,33 +259,20 @@ public class MainPanelController {
                 startParsingJSON(txtFolder.getText());
             }
         });
-        /*txtConvexPatch.textProperty().addListener(new ChangeListener<String>() {
-            @Override
-            public void changed(ObservableValue<? extends String> observable, String oldValue, String newValue) {
-                char last = newValue.charAt(newValue.length() - 1);
-                if (oldValue.length() == 0 && !Character.isDigit(last)){
-                    txtConvexPatch.setText(""); //TO DO - make sure no exceptions are thrown dummy!
-                    return;
-                }
-                if (!Character.isDigit(last)){
-                    txtConvexPatch.setText(oldValue);
-                }
-            }
-        });*/
         txtConvexPatch.setOnAction(new EventHandler<ActionEvent>() {
             @Override
             public void handle(ActionEvent event) {
                 try {
                     /*int atomId = Integer.parseInt(txtConvexPatch.getText());
                     if (atomId >= 0 && atomId < Main.convexPatches.size()){
-                        MainPanel.atomView.selectedAtom.set(atomId);
+                        MainPanel.mainView.selectedAtom.set(atomId);
                     }*/
                     String[] ids = txtConvexPatch.getText().split(",");
                     List<Integer> ints = new ArrayList<>();
                     for (String id : ids){
                         ints.add(Integer.parseInt(id));
                     }
-                    MainPanel.atomView.selectConvexPatchesByIDs(ints);
+                    MainPanel.mainView.selectConvexPatchesByIDs(ints);
                 } catch (NumberFormatException e){
                     e.printStackTrace();
                 }
@@ -259,24 +287,12 @@ public class MainPanelController {
                     for (String id : ids){
                         ints.add(Integer.parseInt(id));
                     }
-                    MainPanel.atomView.selectToriPatchesByIDs(ints);
+                    MainPanel.mainView.selectToriPatchesByIDs(ints);
                 } catch (NumberFormatException e){
                     e.printStackTrace();
                 }
             }
         });
-        /*root.widthProperty().addListener(new ChangeListener<Number>() {
-            @Override
-            public void changed(ObservableValue<? extends Number> observable, Number oldValue, Number newValue) {
-                anchScrAnchor.setPrefWidth(newValue.doubleValue());
-            }
-        });
-        root.heightProperty().addListener(new ChangeListener<Number>() {
-            @Override
-            public void changed(ObservableValue<? extends Number> observable, Number oldValue, Number newValue) {
-                anchScrAnchor.setPrefHeight(newValue.doubleValue());
-            }
-        });*/
         scrMainPane.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
         scrMainPane.widthProperty().addListener(new ChangeListener<Number>() {
             @Override
@@ -290,30 +306,6 @@ public class MainPanelController {
                 anchScrAnchor.setPrefHeight(newValue.doubleValue());
             }
         });
-        /*sldEdgeAngle.valueProperty().addListener(new ChangeListener<Number>() {
-            @Override
-            public void changed(ObservableValue<? extends Number> observable, Number oldValue, Number newValue) {
-                if (updateEdgeAngle){
-                    SesConfig.minAlpha = newValue.doubleValue();
-                    updateEdgeAngle = false;
-                    txtEdgeAngle.setText(Double.toString(SesConfig.minAlpha));
-                } else {
-                    updateEdgeAngle = true;
-                }
-            }
-        });
-        txtEdgeAngle.textProperty().addListener(new ChangeListener<String>() {
-            @Override
-            public void changed(ObservableValue<? extends String> observable, String oldValue, String newValue) {
-                if (updateEdgeAngle){
-                    SesConfig.minAlpha = Double.parseDouble(newValue);
-                    updateEdgeAngle = false;
-                    sldEdgeAngle.setValue(SesConfig.minAlpha);
-                } else {
-                    updateEdgeAngle = true;
-                }
-            }
-        });*/
         spinnerEdgeLength.valueProperty().addListener(new ChangeListener<Double>() {
             @Override
             public void changed(ObservableValue<? extends Double> observable, Double oldValue, Double newValue) {
@@ -341,14 +333,14 @@ public class MainPanelController {
                 try {
                     /*int concId = Integer.parseInt(txtConcavePatch.getText());
                     if (concId >= 0 && concId < Main.triangles.size()){
-                        MainPanel.atomView.selectedConcaveP.set(concId);
+                        MainPanel.mainView.selectedConcaveP.set(concId);
                     }*/
                     String[] ids = txtConcavePatch.getText().split(",");
                     List<Integer> ints = new ArrayList<>();
                     for (String id : ids){
                         ints.add(Integer.parseInt(id));
                     }
-                    MainPanel.atomView.selectConcavePatchesByIDs(ints);
+                    MainPanel.mainView.selectConcavePatchesByIDs(ints);
                 } catch (NumberFormatException e){
                     e.printStackTrace();
                 }
@@ -364,7 +356,7 @@ public class MainPanelController {
                 Platform.runLater(new Runnable() {
                     @Override
                     public void run() {
-                        MainPanel.atomView.isPinned.setValue(MainPanel.pinnedToView);
+                        MainPanel.mainView.isPinned.setValue(MainPanel.pinnedToView);
                     }
                 });
             }
@@ -373,18 +365,18 @@ public class MainPanelController {
         chkShowProbe.setOnAction(new EventHandler<ActionEvent>() {
             @Override
             public void handle(ActionEvent event) {
-                if (MainPanel.atomView != null) {MainPanel.atomView.showProbe(chkShowProbe.isSelected());}
+                if (MainPanel.mainView != null) {MainPanel.mainView.showProbe(chkShowProbe.isSelected());}
             }
         });
         sldProbeAlpha.setDisable(true);
         sldProbeAlpha.valueProperty().addListener(new ChangeListener<Number>() {
             @Override
             public void changed(ObservableValue<? extends Number> observable, Number oldValue, Number newValue) {
-                if (MainPanel.atomView == null){
+                if (MainPanel.mainView == null){
                     return;
                 }
                 float v = newValue.intValue() / 100.f;
-                MainPanel.atomView.setProbeAlpha(v);
+                MainPanel.mainView.setProbeAlpha(v);
             }
         });
         cmbResolution.getItems().add("800x600");
@@ -398,8 +390,8 @@ public class MainPanelController {
             public void handle(ActionEvent event) {
                 String[] dims = cmbResolution.getSelectionModel().getSelectedItem().split("x");
                 try {
-                    if (MainPanel.atomView != null) {
-                        MainPanel.atomView.window.setSize(Integer.parseInt(dims[0]), Integer.parseInt(dims[1]));
+                    if (MainPanel.mainView != null) {
+                        MainPanel.mainView.window.setSize(Integer.parseInt(dims[0]), Integer.parseInt(dims[1]));
                     }
                 } catch (NumberFormatException e){
                     e.printStackTrace();
@@ -408,8 +400,6 @@ public class MainPanelController {
         });
         lblProbeRadius.setText("-");
         MainPanel.controlPanel = this;
-        //lblProbeRadius.textProperty().bind(probeRadius.asString());
-        //lblAtomCount.textProperty().bind(atomCount.asString());
         probeRadius.addListener(new ChangeListener<Number>() {
             @Override
             public void changed(ObservableValue<? extends Number> observable, Number oldValue, Number newValue) {
@@ -417,18 +407,14 @@ public class MainPanelController {
                 Surface.probeRadius.set(Double.doubleToLongBits(newValue.doubleValue()));
             }
         });
-        cmbExportFormat.getItems().add("STL binary");
+        cmbExportFormat.getItems().add("STL text");
         cmbExportFormat.getItems().add("Wavefront OBJ");
         cmbExportFormat.getSelectionModel().select(0);
         root.setMinWidth(320);
-        //tlpAppSettings.setPrefHeight(224);
-        //tlpAppSettings.setExpanded(true);
         tlpMesh.setPrefHeight(tlpMeshHeight);
         tlpMesh.setExpanded(true);
-        //vboSettExp.setPrefHeight(300 + 126 + 40);
-        vboSettExp.setPrefHeight(600);
-        ///vboSettExp.setMaxHeight(224 + 280 + 114 + 40 + 126);
-        vboSettExp.setMaxHeight(tlpAppSettingsHeight + tlpMeshHeight + tlpExportHeight + 40 + 126);
+        vboSettExp.setPrefHeight(620);
+        vboSettExp.setMaxHeight(tlpAppSettingsHeight + tlpMeshHeight + tlpExportHeight + 70 + tbpHeight);
         tlpAppSettings.expandedProperty().addListener(new ChangeListener<Boolean>() {
             @Override
             public void changed(ObservableValue<? extends Boolean> observable, Boolean oldValue, Boolean newValue) {
@@ -438,11 +424,9 @@ public class MainPanelController {
                     tlpExclusiveExpand = false;
                 } else {
                     tlpExclusiveExpand = true;
-                    //tlpExport.setExpanded(false);
                 }
             }
         });
-        //tlpExport.get
         tlpExport.expandedProperty().addListener(new ChangeListener<Boolean>() {
             @Override
             public void changed(ObservableValue<? extends Boolean> observable, Boolean oldValue, Boolean newValue) {
@@ -452,7 +436,6 @@ public class MainPanelController {
                     tlpExclusiveExpand = false;
                 } else {
                     tlpExclusiveExpand = true;
-                    //tlpAppSettings.setExpanded(false);
                 }
             }
         });
@@ -467,8 +450,8 @@ public class MainPanelController {
         sldMouseSensitivity.valueProperty().addListener(new ChangeListener<Number>() {
             @Override
             public void changed(ObservableValue<? extends Number> observable, Number oldValue, Number newValue) {
-                if (MainPanel.atomView != null){
-                    MainPanel.atomView.setMouseSensitivity(newValue.floatValue());
+                if (MainPanel.mainView != null){
+                    MainPanel.mainView.setMouseSensitivity(newValue.floatValue());
                 }
             }
         });
@@ -478,6 +461,17 @@ public class MainPanelController {
                 if (SesConfig.inputFolder != null && SesConfig.inputFolder.length() > 0){
                     txtFolder.setText(SesConfig.inputFolder);
                     startParsingJSON(SesConfig.inputFolder);
+                }
+            }
+        });
+        sldAmbientStrength.setValue(0.2);
+        sldAmbientStrength.setMax(1.0);
+        sldAmbientStrength.setMin(0.05);
+        sldAmbientStrength.valueProperty().addListener(new ChangeListener<Number>() {
+            @Override
+            public void changed(ObservableValue<? extends Number> observable, Number oldValue, Number newValue) {
+                if (MainWindow.mainWindow != null){
+                    MainWindow.mainWindow.setAmbientStrength(newValue.floatValue());
                 }
             }
         });
@@ -491,7 +485,7 @@ public class MainPanelController {
         btnRemesh.disableProperty().set(true);
         SesConfig.edgeLimit = spinnerEdgeLength.getValue();
         FXMLLoader loader = new FXMLLoader();
-        loader.setLocation(MainPanel.class.getResource("/fxml/AtomLoadingView.fxml"));
+        loader.setLocation(MainPanel.class.getResource("/fxml/SESLoadingView.fxml"));
         try {
             String raw = SurfaceParser.loadFile(folder + "/info.json");
             SurfaceParser.parseSesConfig(raw);
@@ -502,24 +496,19 @@ public class MainPanelController {
             Scene scene = new Scene(anch);
             Stage stage = new Stage();
             stage.setScene(scene);
-            AtomLoadingController.stage = stage;
-            stage.setTitle("Processing atoms");
-            AtomLoadingController.folder = folder + "/";
+            SESLoadingController.stage = stage;
+            stage.setTitle("Processing input data");
+            SESLoadingController.folder = folder + "/";
             stage.setResizable(false);
             stage.initOwner(root);
             stage.initModality(Modality.APPLICATION_MODAL);
             stage.show();
-            AtomLoadingController.task.setOnSucceeded(new EventHandler<WorkerStateEvent>() {
+            SESLoadingController.task.setOnSucceeded(new EventHandler<WorkerStateEvent>() {
                 @Override
                 public void handle(WorkerStateEvent event) {
-                    //MainPanel.atomView.freeGLResources();
                     sldProbeAlpha.setDisable(false);
                     chkShowProbe.setDisable(false);
-                    //MainPanel.atomView.setup();
-                    //MainPanel.atomView.sendPatchesLists(Surface.convexPatches, Surface.triangles);
-                    //MainPanel.atomView.sendConvexPatchList(Main.convexPatches);
-                    //MainPanel.atomView.sendConcavePatchList(Main.triangles);
-                    MainPanel.atomView.selectedConcaveP.addListener(new ChangeListener<Number>() {
+                    MainPanel.mainView.selectedConcaveP.addListener(new ChangeListener<Number>() {
                         @Override
                         public void changed(ObservableValue<? extends Number> observable, Number oldValue, Number newValue) {
                             Platform.runLater(new Runnable() {
@@ -530,7 +519,7 @@ public class MainPanelController {
                             });
                         }
                     });
-                    MainPanel.atomView.selectedAtom.addListener(new ChangeListener<Number>() {
+                    MainPanel.mainView.selectedAtom.addListener(new ChangeListener<Number>() {
                         @Override
                         public void changed(ObservableValue<? extends Number> observable, Number oldValue, Number newValue) {
                             Platform.runLater(new Runnable() {
@@ -541,7 +530,7 @@ public class MainPanelController {
                             });
                         }
                     });
-                    MainPanel.atomView.selectedToriP.addListener(new ChangeListener<Number>() {
+                    MainPanel.mainView.selectedToriP.addListener(new ChangeListener<Number>() {
                         @Override
                         public void changed(ObservableValue<? extends Number> observable, Number oldValue, Number newValue) {
                             Platform.runLater(new Runnable() {
@@ -552,9 +541,16 @@ public class MainPanelController {
                             });
                         }
                     });
-                    MainPanel.atomView.changeColor(0, (float)atomColorPick.getValue().getRed(), (float)atomColorPick.getValue().getGreen(), (float)atomColorPick.getValue().getBlue());
-                    MainPanel.atomView.changeColor(1, (float)triangleColorPick.getValue().getRed(), (float)triangleColorPick.getValue().getGreen(), (float)triangleColorPick.getValue().getBlue());
-                    MainPanel.atomView.changeColor(2, (float)torusColorPick.getValue().getRed(), (float)torusColorPick.getValue().getGreen(), (float)torusColorPick.getValue().getBlue());
+                    sldAmbientStrength.setDisable(false);
+                    atomColorPick.setDisable(false);
+                    triangleColorPick.setDisable(false);
+                    torusColorPick.setDisable(false);
+                    monoColorPick.setDisable(false);
+                    btnResetColors.setDisable(false);
+                    chkUseMonoColor.setDisable(false);
+                    MainPanel.mainView.changeColor(0, (float)atomColorPick.getValue().getRed(), (float)atomColorPick.getValue().getGreen(), (float)atomColorPick.getValue().getBlue());
+                    MainPanel.mainView.changeColor(1, (float)triangleColorPick.getValue().getRed(), (float)triangleColorPick.getValue().getGreen(), (float)triangleColorPick.getValue().getBlue());
+                    MainPanel.mainView.changeColor(2, (float)torusColorPick.getValue().getRed(), (float)torusColorPick.getValue().getGreen(), (float)torusColorPick.getValue().getBlue());
                     chkPinToView.setDisable(false);
                     cmbResolution.setDisable(false);
                     chkPinToView.fire();
@@ -563,18 +559,7 @@ public class MainPanelController {
                     stage.close();
                 }
             });
-            AtomLoadingController.work();
-            /*if (MainPanel.atomView != null) {
-                MainPanel.atomView.close();
-            }
-            MainPanel.atomView = new MainWindow();
-            MainPanel.atomView.setup();
-            MainPanel.atomView.sendConvexPatchList(Main.convexPatches);
-            MainPanel.atomView.controlPanel = root;
-            chkPinToView.setDisable(false);
-            cmbResolution.setDisable(false);
-            chkPinToView.fire();*/
-
+            SESLoadingController.work();
         } catch (IOException e){
             e.printStackTrace();
         }

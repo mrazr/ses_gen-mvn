@@ -170,12 +170,6 @@ public class MeshGeneration {
             System.out.println("Toroidal patches meshed in " + (endTime - startTime) + " milliseconds");
         }
         toriMeshTime = (endTime - startTime);
-        //try {
-        //    System.in.read();
-        //    System.out.println("After tori mesh");
-        //} catch (Exception e){
-        //    e.printStackTrace();
-        //}
         MeshGeneration.threads_done.set(0);
         int step = SesConfig.atomCount / THREAD_COUNT;
         for (int i = 0; i < THREAD_COUNT; ++i){
@@ -210,7 +204,18 @@ public class MeshGeneration {
     private static Arc _left = new Arc(new Point(0, 0, 0), 1.0);
     private static Arc _topL = new Arc(new Point(0, 0, 0), 1.0);
     private static Arc _right = new Arc(new Point(0, 0, 0), 1.0);
-    public static void meshToroidalPatch(ToroidalPatch tp){
+
+    private static Vector toProbe = new Vector(0, 0, 0);
+    private static Vector atom1ToAtom2 = new Vector(0, 0, 0);
+    private static Point centerOfRotation = new Point(0, 0, 0);
+    private static Point centerOfTorus = new Point(0, 0, 0);
+    private static Vector v1 = new Vector(0, 0, 0);
+    private static Point currProbe = new Point(0, 0, 0);
+    private static Point prevProbe = new Point(0, 0, 0);
+
+    private static int nextFaceID = 0;
+    private static List<Point> leftVArc = new ArrayList<>(17);
+    private static List<Point> rightVArc = new ArrayList<>(17);public static void meshToroidalPatch(ToroidalPatch tp){
         try {
             if (tp.id == 8165){
                 int a = 3;
@@ -241,29 +246,40 @@ public class MeshGeneration {
 //                }
 //            }
             if (tp.tr1 != null){
+                int subdLevel = (int)Math.max(ArcUtil.getSubdivisionLevel(tp.tr1.left), ArcUtil.getSubdivisionLevel(tp.tr1.right));
                 _top.clear();
                 for (int i = 0; i < tp.tr1.base.vrts.size(); ++i){
                     _top.add(tp.tr1.cuspPoint);
                 }
                 tp.probes = new Point[2 * tp.tr1.base.vrts.size()];
-                //Arc left = new Arc(tp.tr1.left.center, tp.tr1.left.radius);
+                int arcLev = ArcUtil.getSubdivisionLevel(tp.tr1.left);
+                if (arcLev < subdLevel){
+                    ArcUtil.refineArc(tp.tr1.left, SesConfig.edgeLimit, true, subdLevel - arcLev, false);
+                }
                 _left.center.change(tp.tr1.left.center);
                 _left.radius = tp.tr1.left.radius;
                 _left.vrts.clear();
                 _left.vrts.addAll(tp.tr1.left.vrts);
                 ArcUtil.reverseArc(_left, true);
-                //Arc topL = new Arc(tp.tr1.cuspPoint, 0);
                 _topL.center.change(tp.tr1.cuspPoint);
                 _topL.radius = 0;
                 _topL.vrts.clear();
                 _topL.vrts.addAll(_top);
+                arcLev = ArcUtil.getSubdivisionLevel(tp.tr1.right);
+                if (arcLev < subdLevel){
+                   ArcUtil.refineArc(tp.tr1.right, SesConfig.edgeLimit, true, subdLevel - arcLev, false);
+                }
                 meshToroidalPatch(tp, tp.tr1.base, _topL, _left, tp.tr1.right, true);
 
                 _top.clear();
                 for (int i = 0; i < tp.tr2.base.vrts.size(); ++i){
                     _top.add(tp.tr2.cuspPoint);
                 }
-                //left = new Arc(tp.tr2.left.center, tp.tr2.left.radius);
+                subdLevel = Math.max(ArcUtil.getSubdivisionLevel(tp.tr2.left), ArcUtil.getSubdivisionLevel(tp.tr2.right));
+                arcLev = ArcUtil.getSubdivisionLevel(tp.tr2.left);
+                if (arcLev < subdLevel){
+                    ArcUtil.refineArc(tp.tr2.left, SesConfig.edgeLimit, true, subdLevel - arcLev, false);
+                }
                 _left.center.change(tp.tr2.left.center);
                 _left.radius = tp.tr2.left.radius;
                 _left.vrts.clear();
@@ -272,6 +288,10 @@ public class MeshGeneration {
                 _topL.vrts.clear();
                 _topL.vrts.addAll(_top);
                 tp.arcVertsCount = tp.tr1.left.vrts.size();
+                arcLev = ArcUtil.getSubdivisionLevel(tp.tr2.right);
+                if (arcLev < subdLevel){
+                    ArcUtil.refineArc(tp.tr2.right, SesConfig.edgeLimit, true, subdLevel - arcLev, false);
+                }
                 meshToroidalPatch(tp, tp.tr2.base, _topL, _left, tp.tr2.right, true);
                 transferFacesToPatch(tp);
                 Surface.toriFacesCount += tp.faces.length / 3;
@@ -426,17 +446,6 @@ public class MeshGeneration {
             e.printStackTrace();
         }
     }
-    private static Vector toProbe = new Vector(0, 0, 0);
-    private static Vector atom1ToAtom2 = new Vector(0, 0, 0);
-    private static Point centerOfRotation = new Point(0, 0, 0);
-    private static Point centerOfTorus = new Point(0, 0, 0);
-    private static Vector v1 = new Vector(0, 0, 0);
-    private static Point currProbe = new Point(0, 0, 0);
-    private static Point prevProbe = new Point(0, 0, 0);
-
-    private static int nextFaceID = 0;
-    private static List<Point> leftVArc = new ArrayList<>(17);
-    private static List<Point> rightVArc = new ArrayList<>(17);
     private static void meshToroidalPatch(ToroidalPatch tp, Arc bottom, Arc top, Arc left, Arc right, boolean special){
         try {
             if (tp.id == 8871){

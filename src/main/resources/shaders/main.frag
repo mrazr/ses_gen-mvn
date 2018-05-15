@@ -15,15 +15,13 @@ uniform vec3 lightPos;
 uniform float ambientStrength;
 void main(void)
 {
-    //float ambientStrength = 0.5f;
-    vec3 ambient = ambientStrength * lightColor;
+    vec3 ambient = ambientStrength * baseColor;
     vec3 normal2 = (mvInverse * vec4(Normal,0.0)).xyz;
-
-    //vec3 truePOS = (viewMat * vec4(FragPos, 1.0)).xyz;
 
     vec3 lightDir = normalize(lightPos - FragPos);
     float diff = max(dot(lightDir, normal2), 0.0f);
-    vec3 diffuse = lightColor * diff;
-    vec3 result = (ambient + diffuse) * baseColor;
+    vec3 diffuse = baseColor * lightColor * diff;
+    //vec3 result = (ambient + diffuse) * baseColor;
+    vec3 result = ambient + diffuse;
     color = vec4(result, alpha);
 }

@@ -103,54 +103,32 @@ public class MainWindow implements GLEventListener, KeyListener, MouseListener{
     private float modelY = 0.f;
     private float modelZ = -2.f;
     private long lastTick;
-    private int atomIdx = 0;
     private PMVMatrix _projMat = new PMVMatrix();
-    //Matrix3D pMat;
-    //Point3D cameraTarget;
-    //Point3D lightPos;
     private float[] lightPosition = new float[3];
     private float[] cameraTarget = new float[3];
     private static float[] lastCameraTarget = new float[3];
     PMVMatrix look = new PMVMatrix();
 
     private List<SphericalPatch> convexPatchList;
-    private boolean newAtoms = false;
-    //private int selectedAtom = 0;
     private int hoverAtom = -1;
     public IntegerProperty selectedAtom = new SimpleIntegerProperty(1);
     public IntegerProperty selectedConcaveP = new SimpleIntegerProperty(0);
     public IntegerProperty selectedToriP = new SimpleIntegerProperty(0);
     private String strSelectedAtom = "";
     private boolean selectedExclusiveRender = false;
-    private AdvancingFrontMethod afm;
-    AtomicBoolean update2 = new AtomicBoolean(false);
-    private boolean update = false;
-    //private List<Edge> updaLines = new ArrayList<>();
-    //private List<Point> updaVrts = new ArrayList<>();
-    //private List<Face> updaFaces = new ArrayList<>();
+
     private boolean drawFaces = true;
-    private boolean drawLinesOnTop = true;
     private boolean step = true;
-    private boolean[] atomsMeshed;
-    private boolean[] concavePatchesMeshed;
 
     private List<SphericalPatch> concavePatchList;
-    //private boolean newCPs = false;
     private boolean renderCPs = false;
-    //private AdvancingFrontMethod cpAfm;
-    //private List<Point> cpVrts = new ArrayList<>();
-    //private List<Face> cpFaces = new ArrayList<>();
-    //private AtomicBoolean cpUpdate = new AtomicBoolean(false);
+
 
 
     private float[] toriPatchCol = {51 / 255.f, 77 / 255.f, 177 / 255.f};
-    //private float[] concavePatchSelCol = {234 / 255.f, 165 / 255.f, 33 / 255.f};
     private float[] concavePatchCol = {31 / 255.f, 143 / 255.f, 0 / 255.f};
-    //private float[] convexPatchSelCol = {234 / 255.f, 165 / 255.f, 33 / 255.f};
     private float[] convexPatchCol = {197 / 255.f, 20 / 255.f, 20 / 255.f};
     private float[] selectedPatchCol = {1.f, 231 / 255.f, 76 / 255.f};
-    private float[] hoveredPatchCol = {.8f, .8f, .8f};
-    private float[] pointColor = {137 / 255.f, 66 / 255.f, 244 / 255.f};
     private float[] clearColor = {1.f, 1.f, 1.f, 1.f};
     private boolean onlyCircular = false;
 
@@ -246,6 +224,7 @@ public class MainWindow implements GLEventListener, KeyListener, MouseListener{
     private int lastX;
     private int lastY;
     private boolean rotating = true;
+    private float ambientStrength = 0.1f;
 
     //pure opengl data
     private List<Integer> vaos;
@@ -280,6 +259,8 @@ public class MainWindow implements GLEventListener, KeyListener, MouseListener{
     private int colorChange = -1;
     private float[] newColor = new float[3];
 
+    Quaternion axisUp = new Quaternion(0.f, 0.f, 0.f, 0.f);
+    Quaternion axisRight = new Quaternion(0.f, 0.f, 0.f, 0.f);
     public void changeColor(int meshType, float r, float g, float b){
         newColor[0] = r;
         newColor[1] = g;
@@ -707,7 +688,7 @@ public class MainWindow implements GLEventListener, KeyListener, MouseListener{
         uniSelectedMeshCountLoc = gl.glGetUniformLocation(mainProgram, "selectedMeshCount");
         uniMvInverseLoc = gl.glGetUniformLocation(mainProgram, "mvInverse");
         uniCameraPosLoc = gl.glGetUniformLocation(mainProgram, "cameraPos");
-        uniLightPosLoc = gl.glGetUniformLocation(mainProgram, "lighPos");
+        uniLightPosLoc = gl.glGetUniformLocation(mainProgram, "lightPos");
         //rectProgram = Util.createShaderProgram("rect.vert", "rect.frag");
         selProgram = GLUtil.createShaderProgram(getClass().getClassLoader().getResourceAsStream("shaders/sel2.vert"), getClass().getClassLoader().getResourceAsStream("shaders/sel.frag"));
         //selProgram = GLUtil.createShaderProgram("./resources/shaders/sel2.vert", "./resources/shaders/sel.frag");
@@ -1032,7 +1013,7 @@ public class MainWindow implements GLEventListener, KeyListener, MouseListener{
             //float[] light = new float[3];
             //light =
             //gl.glUniform3f(lightPos_loc, (float)lightPos.getX(), (float)lightPos.getY(), (float)lightPos.getZ());
-            gl.glUniform3fv(lightPos_loc, 1, lightPosition, 0);
+            gl.glUniform3fv(uniLightPosLoc, 1, lightPosition, 0);
             gl.glUniform1f(uniAlphaLoc, 1.f);
             //gl.glClearColor(0.45f, 0.45f, 0.45f, 1.0f);
             //gl.glDrawArrays(GL.GL_LINES, 0, numOfVrts);
@@ -1292,8 +1273,9 @@ public class MainWindow implements GLEventListener, KeyListener, MouseListener{
                 gl.glUniform1i(uniSelectedMeshCountLoc, buffCap); //convexPatchesSelect.size());
                 gl.glUniform1iv(uniSelectedMeshStartLoc, buffCap, selectStart);
                 gl.glUniform1iv(uniSelectedMeshEndLoc, buffCap, selectEnd);
-                gl.glUniform1f(uniAmbientStrengthLoc, 0.5f);
-                gl.glUniform3fv(uniMeshColorLoc, 1, convexPatchCol, 0);
+                gl.glUniform1f(uniAmbientStrengthLoc, ambientStrength);
+                //gl.glUniform3fv(uniMeshColorLoc, 1, convexPatchCol, 0);
+                gl.glUniform3fv(uniNormalColorLoc, 1, convexPatchCol, 0);
                 gl.glBindVertexArray(meshVao[CONVEX]);
                 gl.glBindBuffer(GL4.GL_ELEMENT_ARRAY_BUFFER, meshEbo[CONVEX]);
                 gl.glDrawElements(GL4.GL_TRIANGLES, 3 * convexPatchesFaceCount, GL4.GL_UNSIGNED_INT, 0);
@@ -1302,7 +1284,7 @@ public class MainWindow implements GLEventListener, KeyListener, MouseListener{
             }
         }
         if (renderLines) {
-            gl.glUniform1f(uniAmbientStrengthLoc, .75f);
+            gl.glUniform1f(uniAmbientStrengthLoc, ambientStrength);
             gl.glBindVertexArray(lineVao[CONVEX]);
             gl.glBindBuffer(GL4.GL_ELEMENT_ARRAY_BUFFER, lineEbo[CONVEX]);
             if (selectedExclusiveRender){
@@ -1367,12 +1349,12 @@ public class MainWindow implements GLEventListener, KeyListener, MouseListener{
                 selectEnd.rewind();
                 int  buffCap = concavePatchesSelect.size();
                 gl.glFrontFace(GL4.GL_CW);
-                gl.glUniform1f(uniAmbientStrengthLoc, 0.5f);
+                gl.glUniform1f(uniAmbientStrengthLoc, ambientStrength);
                 gl.glUniform1i(uniSelectedMeshCountLoc, buffCap); //concavePatchesSelect.size());
                 gl.glUniform1iv(uniSelectedMeshStartLoc, buffCap, selectStart);
                 gl.glUniform1iv(uniSelectedMeshEndLoc, buffCap, selectEnd);
                 gl.glFrontFace(GL4.GL_CW);
-                gl.glUniform3fv(uniMeshColorLoc, 1, concavePatchCol, 0);
+                //gl.glUniform3fv(uniMeshColorLoc, 1, concavePatchCol, 0);
                 gl.glUniform3fv(uniNormalColorLoc, 1, concavePatchCol, 0);
                 gl.glBindVertexArray(meshVao[CONCAVE]);
                 gl.glBindBuffer(GL4.GL_ELEMENT_ARRAY_BUFFER, meshEbo[CONCAVE]);
@@ -1383,7 +1365,7 @@ public class MainWindow implements GLEventListener, KeyListener, MouseListener{
             }
         }
         if (renderLines) {
-            gl.glUniform1f(uniAmbientStrengthLoc, .75f);
+            gl.glUniform1f(uniAmbientStrengthLoc, ambientStrength);
             gl.glBindVertexArray(lineVao[CONCAVE]);
             gl.glBindBuffer(GL4.GL_ELEMENT_ARRAY_BUFFER, lineEbo[CONCAVE]);
             if (selectedExclusiveRender){
@@ -1438,48 +1420,18 @@ public class MainWindow implements GLEventListener, KeyListener, MouseListener{
                     selectStart.put(-1);
                 }
             }
-            //start.rewind();
-            //end.rewind();
             selectStart.rewind();
             selectEnd.rewind();
             int buffCap = toriPatchesSelect.size();//(toriPatchesSelect.size() > 0) ? toriPatchesSelect.size() : 20;
-            gl.glUniform1f(uniAmbientStrengthLoc, 0.5f);
+            gl.glUniform1f(uniAmbientStrengthLoc, ambientStrength);
             gl.glUniform1i(uniSelectedMeshCountLoc, buffCap);//toriPatchesSelect.size());
             gl.glUniform1iv(uniSelectedMeshStartLoc, buffCap, selectStart);
             gl.glUniform1iv(uniSelectedMeshEndLoc, buffCap, selectEnd);
-            gl.glUniform3fv(uniMeshColorLoc, 1, toriPatchCol, 0);
+            //gl.glUniform3fv(uniMeshColorLoc, 1, toriPatchCol, 0);
             gl.glUniform3fv(uniNormalColorLoc, 1, toriPatchCol, 0);
-            //gl.glUniform3fv(uniSelectedColorLoc, 1, selecte)
             gl.glBindVertexArray(meshVao[TORUS]);
             gl.glDrawArrays(GL4.GL_TRIANGLES, 0, 3 * toriPatchesFaceCount);
             gl.glBindVertexArray(0);
-        }
-    }
-
-    private void meshToriPatches(int start, int end, boolean waitForOthers){
-        stopRendering.set(true);
-        long startTime = System.currentTimeMillis();
-        for (int i = 0; i < end; ++i){
-            ToroidalPatch tp = Surface.rectangles.get(i);
-            MeshGeneration.meshToroidalPatch(tp);
-        }
-        long endTime = System.currentTimeMillis();
-        System.out.println("Tori meshed in " + (endTime - startTime) + " ms");
-        toriMeshThreadsCounter.getAndIncrement();
-        if (waitForOthers){
-            while (!toriPushData2GPU.get()){}
-            GLRunnable task = new GLRunnable() {
-                @Override
-                public boolean run(GLAutoDrawable glAutoDrawable) {
-                    pushToriMeshToGPU();
-                    stopRendering.set(false);
-                    return true;
-                }
-            };
-            window.invoke(false, task);
-
-        } else {
-            //toriPushData2GPU.set(true);
         }
     }
 
@@ -1608,7 +1560,6 @@ public class MainWindow implements GLEventListener, KeyListener, MouseListener{
     private void _pushToriMeshToGPU(){
         stopRendering.set(true);
         FloatBuffer _vrtsNormals = GLBuffers.newDirectFloatBuffer(Surface.toriFacesCount * 3 * 2 * 3);
-        int m = 0;
         int vboOffset = 0;
         int faceCount = 0;
         int _tmpOffset = 0;
@@ -1620,7 +1571,6 @@ public class MainWindow implements GLEventListener, KeyListener, MouseListener{
                 continue;
             }
             _tmpOffset = 0;
-            //m = tp.arcVertsCount;
             for (int i = 0; i < tp.faces.length; i ++){//Face f : tp.faces){
                _p = tp.vertices.get(tp.faces[i]);
                _probe = tp.probes[PatchUtil.getTorusProbeIdx(tp, tp.faces[i])];
@@ -1634,21 +1584,10 @@ public class MainWindow implements GLEventListener, KeyListener, MouseListener{
                _vrtsNormals.put((float)_n.getZ());
                _tmpOffset += 1;
             }
-            //for (Point p : tp.vrts){
-            //    vrtsNormals.add(p);
-            //}
             tp.vboOffset = vboOffset;
-            //tp.faceCount = 3 * tp.faces.size();
             vboOffset += _tmpOffset;
             faceCount += tp.faces.length / 3;
         }
-        //FloatBuffer buffer = GLBuffers.newDirectFloatBuffer(_vrtsNormals.size());
-        ////for (Point p : vrtsNormals){
-        //  //  buffer.put(p.getFloatData());
-        ////}
-        //for (Float f : _vrtsNormals){
-        //    buffer.put(f);
-        //}
         _vrtsNormals.rewind();
         toriPatchesFaceCount = _vrtsNormals.capacity() / 18;
         gl.glBindVertexArray(meshVao[TORUS]);
@@ -1793,82 +1732,6 @@ public class MainWindow implements GLEventListener, KeyListener, MouseListener{
 
     @Override
     public void keyPressed(KeyEvent keyEvent) {
-
-        if (keyEvent.getKeyChar() == ','){
-            /*if (!MeshRefinement.instance.isRunning()){
-                MeshRefinement.instance.start();
-            }
-            convexPushData2GPU.set(false);
-            int half = convexPatchList.size() / 2;
-            int step = convexPatchList.size() / threadCount;
-            Runnable thread1 = new Runnable() {
-                @Override
-                public void run() {
-                    meshConvexPatches(0, step, false);
-                }
-            };
-            //offset += step;
-            Runnable thread2 = new Runnable() {
-                @Override
-                public void run() {
-                    meshConvexPatches(step, 2*step, false);
-                }
-            };
-            Runnable thread3 = new Runnable() {
-                @Override
-                public void run() {
-                    meshConvexPatches(2*step, 3*step, false);
-                }
-            };
-            Runnable thread4 = new Runnable() {
-                @Override
-                public void run() {
-                    meshConvexPatches(3*step, convexPatchList.size(), true);
-                }
-            };
-            (new Thread(thread1)).start();
-            (new Thread(thread2)).start();
-            (new Thread(thread3)).start();
-            (new Thread(thread4)).start();*/
-        }
-
-        if (keyEvent.getKeyChar() == '.'){
-            /*if (!MeshRefinement.instance.isRunning()){
-                //MeshRefinement.instance.start();
-            }
-            concavePushData2GPU.set(false);
-            int half = concavePatchList.size() / 2;
-            int step = concavePatchList.size() / 4;
-            Runnable task1 = new Runnable() {
-                @Override
-                public void run() {
-                    meshConcavePatches(0, step, false);
-                }
-            };
-            Runnable task2 = new Runnable() {
-                @Override
-                public void run() {
-                    meshConcavePatches(step, 2 * step, false);
-                }
-            };
-            Runnable task3 = new Runnable() {
-                @Override
-                public void run() {
-                    meshConcavePatches(2 * step, 3 * step, false);
-                }
-            };
-            Runnable task4 = new Runnable() {
-                @Override
-                public void run() {
-                    meshConcavePatches(3 * step, concavePatchList.size(), true);
-                }
-            };
-            (new Thread(task1)).start();
-            (new Thread(task2)).start();
-            (new Thread(task3)).start();
-            (new Thread(task4)).start();*/
-        }
-
         if (keyEvent.getKeyCode() == KeyEvent.VK_F1){
             concaveFaceCountShow = (concaveFaceCountShow > 0) ? concaveFaceCountShow - 1 : concaveFaceCountShow;
             convexFaceCountShow = (convexFaceCountShow > 0) ? convexFaceCountShow - 1 : convexFaceCountShow;
@@ -1899,76 +1762,18 @@ public class MainWindow implements GLEventListener, KeyListener, MouseListener{
             SphericalPatch sp = Surface.convexPatches.get(convexPatchesSelect.get(0));
             SurfaceParser.exportPatch(sp);
             SurfaceParser.exportCP(sp, "/home/radoslav/objs/cp_" + sp.id + ".obj");
-            //SurfaceParser.exportOldFaces(sp);
-            //SurfaceParser.exportCP_(sp);
         }
 
         if (keyEvent.getKeyChar() == 'i'){
             SphericalPatch sp = Surface.triangles.get(concavePatchesSelect.get(0));
             SurfaceParser.exportPatch(sp);
             SurfaceParser.exportCP(sp, "/home/radoslav/objs/concp_" + sp.id + ".obj");
-            //SurfaceParser.exportOldFaces(sp);
-            //SurfaceParser.exportCP_(sp);
         }
-
-        if (keyEvent.getKeyChar() == ']'){
-            //toriPushData2GPU.set(false);
-            int step = Surface.rectangles.size() / 4;
-            Runnable t1 = new Runnable() {
-                @Override
-                public void run() {
-                    meshToriPatches(0, Surface.rectangles.size(), true);
-                }
-            };
-            Runnable t2 = new Runnable() {
-                @Override
-                public void run() {
-                    meshToriPatches(step, 2 * step, false);
-                }
-            };
-            Runnable t3 = new Runnable() {
-                @Override
-                public void run() {
-                    meshToriPatches(2 * step, 3 * step, false);
-                }
-            };
-            Runnable t4 = new Runnable() {
-                @Override
-                public void run() {
-                    meshToriPatches(3 * step, Surface.rectangles.size(), true);
-                }
-            };
-            toriPushData2GPU.set(true);
-            (new Thread(t1)).start();
-            /*(new Thread(t2)).start();
-            (new Thread(t3)).start();
-            (new Thread(t4)).start();*/
-        }
-
-        /*if (keyEvent.getKeyChar() == 'h'){
-            Runnable t1 = new Runnable() {
-                @Override
-                public void run() {
-                    meshConcavePatches(251, 252, true);
-                }
-            };
-            concavePushData2GPU.set(true);
-            (new Thread(t1)).start();
-        }*/
 
         if (keyEvent.getKeyChar() == '\\'){
             stopRendering.set(!stopRendering.get());
         }
         if (keyEvent.getKeyChar() == 'g'){
-            /*GLRunnable task = new GLRunnable() {
-                @Override
-                public boolean run(GLAutoDrawable glAutoDrawable) {
-                    sendPatchesLists(Main.convexPatches, Main.triangles);
-                    return true;
-                }
-            };
-            window.invoke(false, task);*/
-            //convexMeshInitialized = concaveMeshInitialized = toriMeshInitialized;
             convexMeshInitialized = !convexMeshInitialized;
             concaveMeshInitialized = !concaveMeshInitialized;
             toriMeshInitialized = !toriMeshInitialized;
@@ -2009,31 +1814,19 @@ public class MainWindow implements GLEventListener, KeyListener, MouseListener{
         }
 
         if (keyEvent.getKeyChar() == '+'){
-            //selectedAtom = (selectedAtom.get() + 1 >= convexPatches.size()) ? 0 : selectedAtom.add(1);
             if (selectedAtom.get() + 1 >= convexPatchList.size()){
                 selectedAtom.set(0);
             } else {
                 selectedAtom.set(selectedAtom.get() + 1);
             }
-            /*if (selectedConcaveP.get() + 1 >= concavePatchList.size()){
-                selectedConcaveP.set(0);
-            } else {
-                selectedConcaveP.set(selectedConcaveP.get() + 1);
-            }*/
         }
 
         if (keyEvent.getKeyChar() == '-'){
-            //selectedAtom = (selectedAtom - 1 < 0) ? convexPatches.size() - 1 : selectedAtom - 1;
             if (selectedAtom.get() - 1 < 0){
                 selectedAtom.set(convexPatchList.size() - 1);
             } else {
                 selectedAtom.set(selectedAtom.get() - 1);
             }
-           /* if (selectedConcaveP.get() - 1 < 0){
-                selectedConcaveP.set(concavePatchList.size() - 1);
-            } else {
-                selectedConcaveP.set(selectedConcaveP.get() - 1);
-            }*/
         }
 
         if (keyEvent.getKeyChar() == 'n'){
@@ -2054,15 +1847,6 @@ public class MainWindow implements GLEventListener, KeyListener, MouseListener{
                 window.setTitle("Selected atom: " + selectedAtom.get() + " / " + convexPatchList.size());
             }
         }
-
-        /*if (keyEvent.getKeyCode() == KeyEvent.VK_SPACE){
-            Arc l = Main.convexPatches.get(atomIdx++).arcs.get(0);
-            buffersInitialized = false;
-            this.storeNewData(l.getVertices(), l.getEdges());
-            if (atomIdx >= Main.convexPatches.size()){
-                atomIdx = 0;
-            }
-        }*/
         if (keyEvent.getKeyCode() == KeyEvent.VK_ESCAPE){
             captureMouse = !captureMouse;
             rotating = !captureMouse;
@@ -2072,29 +1856,15 @@ public class MainWindow implements GLEventListener, KeyListener, MouseListener{
             dontConsider = true;
         }
         if (keyEvent.getKeyChar() == 'w'){
-            /*cameraPos[0] += direction[0] * deltaTime * speed;
-            cameraPos[1] += direction[1] * deltaTime * speed;
-            cameraPos[2] += direction[2] * deltaTime * speed;*/
             cforward = 1;
-            //cameraMoving = true;
         }
         if (keyEvent.getKeyChar() == 's'){
-            /*cameraPos[0] -= direction[0] * deltaTime * speed;
-            cameraPos[1] -= direction[1] * deltaTime * speed;
-            cameraPos[2] -= direction[2] * deltaTime * speed;*/
             cforward = -1;
-            //cameraMoving = true;
         }
         if (keyEvent.getKeyChar() == 'a'){
-            /*cameraPos[0] -= right[0] * deltaTime * speed;
-            cameraPos[1] -= right[1] * deltaTime * speed;
-            cameraPos[2] -= right[2] * deltaTime * speed;*/
             cright = -1;
         }
         if (keyEvent.getKeyChar() == 'd'){
-            /*cameraPos[0] += right[0] * deltaTime * speed;
-            cameraPos[1] += right[1] * deltaTime * speed;
-            cameraPos[2] += right[2] * deltaTime * speed;*/
             cright = 1;
         }
 
@@ -2102,9 +1872,6 @@ public class MainWindow implements GLEventListener, KeyListener, MouseListener{
             lightPosition[0] = cameraPos[0];
             lightPosition[1] = cameraPos[1];
             lightPosition[2] = cameraPos[2];
-            //lightPos.setX(cameraPos[0]);
-            //lightPos.setY(cameraPos[1]);
-            //lightPos.setZ(cameraPos[2]);
         }
 
         if (keyEvent.getKeyChar() == 'k'){
@@ -2129,19 +1896,13 @@ public class MainWindow implements GLEventListener, KeyListener, MouseListener{
             drawModeUpdate = true;
         }
 
-
-
         if (keyEvent.getKeyChar() == 'l'){
             renderLines = !renderLines;
-            //drawLinesOnTop = !drawLinesOnTop;
         }
 
         if (keyEvent.getKeyChar() == '/'){
             renderCPs = !renderCPs;
         }
-
-
-
 
         if (keyEvent.getKeyChar() == 'o'){
             step =  !step;
@@ -2161,9 +1922,6 @@ public class MainWindow implements GLEventListener, KeyListener, MouseListener{
             if (!mouseSelect){
                 hoverAtom = -1;
             }
-            /*rayDir[0] = direction[0];
-            rayDir[1] = direction[1];
-            rayDir[2] = direction[2];*/
         }
         if (keyEvent.getKeyCode() == KeyEvent.VK_SPACE){
             List<Neighbor<double[], SphericalPatch>> neighs = new ArrayList<>();
@@ -2192,11 +1950,8 @@ public class MainWindow implements GLEventListener, KeyListener, MouseListener{
     }
 
     private static void focusCameraOnTarget(){
-        //System.out.println("focusing");
         camDir = new Quaternion(direction[0], direction[1], direction[2], 0.f);
         camDir.normalize();
-        //Vector v = Point.subtractPoints(lastCameraTarget, new Point(cameraPos[0], cameraPos[1], cameraPos[2])).makeUnit();
-        //camTar = new Quaternion((float)v.getX(), (float)v.getY(), (float)v.getZ(), 0.f);
         float[] vec = new float[3];
         vec[0] = lastCameraTarget[0] - cameraPos[0];
         vec[1] = lastCameraTarget[1] - cameraPos[1];
@@ -2226,10 +1981,10 @@ public class MainWindow implements GLEventListener, KeyListener, MouseListener{
         }
     }
     private int hoverSelectID = -1;
+
     private int getMeshID(){
         if (hoverAtom > -1){
             if (hoverAtom < convexVerticesCount){
-                //int idx = 0;
                 int localCount = hoverAtom;
                 int h = 0;
                 for (int i = 0; i < convexPatchList.size(); ++i){
@@ -2244,7 +1999,6 @@ public class MainWindow implements GLEventListener, KeyListener, MouseListener{
             } else if (hoverAtom < convexVerticesCount + concaveVerticesCount) {
                 int localCount = hoverAtom - convexVerticesCount;
                 int h = 0;
-                //selectedConcaveP.set(hoverAtom - convexPatches.size());
                 for (int i = 0; i < concavePatchList.size(); ++i) {
                     h += concavePatchList.get(i).vertices.size();
                     if (localCount < h) {
@@ -2255,9 +2009,7 @@ public class MainWindow implements GLEventListener, KeyListener, MouseListener{
                 return CONCAVE;
             } else {
                 int localCount = hoverAtom - convexVerticesCount - concaveVerticesCount;
-                //System.out.println("loc count: " + localCount);
                 int h = 0;
-                //selectedToriP.set(hoverAtom - convexPatches.size() - concavePatchList.size());
                 for (int i = 0; i < Surface.rectangles.size(); ++i){
                     if (Surface.rectangles.get(i).faces == null){
                         continue;
@@ -2290,7 +2042,6 @@ public class MainWindow implements GLEventListener, KeyListener, MouseListener{
                         convexPatchesSelect.remove((Object)hoverSelectID);
                     }
                 }
-                //System.out.println("atom id: " + hoverSelectID);
             } else if (meshType == CONCAVE){
                 selectedConcaveP.set(hoverSelectID);
                 if (!addToSelection && !removeSelection){
@@ -2303,7 +2054,6 @@ public class MainWindow implements GLEventListener, KeyListener, MouseListener{
                         concavePatchesSelect.remove((Object)hoverSelectID);
                     }
                 }
-                //System.out.println("triangle id: " + hoverSelectID);
                 linkNeighbors.clear();
             } else {
                 selectedToriP.set(hoverSelectID);
@@ -2318,87 +2068,8 @@ public class MainWindow implements GLEventListener, KeyListener, MouseListener{
                         toriPatchesSelect.remove((Object)hoverSelectID);
                     }
                 }
-                //System.out.println("tori id: " + hoverSelectID);
             }
         }
-        /*if (hoverAtom > -1){
-            if (hoverAtom < convexVerticesCount) {
-                //selectedAtom.set(hoverAtom);
-                int idx = 0;
-                int localCount = hoverAtom;
-                int h = 0;
-                for (int i = 0; i < convexPatches.size(); ++i){
-                    Atom a = convexPatches.get(i);
-                    h += a.vertices.size();
-                    if (localCount < h){
-                        idx = i;
-                        break;
-                    }
-                }
-                selectedAtom.set(idx);
-                if (!addToSelection && !removeSelection){
-                    convexPatchesSelect.clear();
-                    convexPatchesSelect.add(idx);
-                } else {
-                    if (addToSelection) {
-                        convexPatchesSelect.add(idx);
-                    } else if (removeSelection) {
-                        convexPatchesSelect.remove((Object)idx);
-                    }
-                }
-                System.out.println("atom id: " + idx);
-
-            } else if (hoverAtom < convexVerticesCount + concaveVerticesCount){
-                int localCount = hoverAtom - convexVerticesCount;
-                int idx = 0;
-                int h = 0;
-                //selectedConcaveP.set(hoverAtom - convexPatches.size());
-                for (int i = 0; i < concavePatchList.size(); ++i){
-                    h += concavePatchList.get(i).vertices.size();
-                    if (localCount < h){
-                        idx = i;
-                        break;
-                    }
-                }
-                if (!addToSelection && !removeSelection){
-                    concavePatchesSelect.clear();
-                    concavePatchesSelect.add(idx);
-                } else {
-                    if (addToSelection){
-                        concavePatchesSelect.add(idx);
-                    } else if (removeSelection){
-                        concavePatchesSelect.remove((Object)idx);
-                    }
-                }
-                System.out.println("triangle id: " + idx);
-                //
-                linkNeighbors.clear();
-            } else {
-                int localCount = hoverAtom - convexVerticesCount - concaveVerticesCount;
-                int idx = 0;
-                int h = 0;
-                //selectedToriP.set(hoverAtom - convexPatches.size() - concavePatchList.size());
-                for (int i = 0; i < Main.rectangles.size(); ++i){
-                    h += Main.rectangles.get(i).vertices.size();
-                    if (localCount < h){
-                        idx = i;
-                        break;
-                    }
-                }
-                if (!addToSelection && !removeSelection){
-                    toriPatchesSelect.clear();
-                    toriPatchesSelect.add(idx);
-
-                } else {
-                    if (addToSelection){
-                        toriPatchesSelect.add(idx);
-                    } else if (removeSelection){
-                        toriPatchesSelect.remove((Object)idx);
-                    }
-                }
-                System.out.println("tori id: " + idx);
-            }
-        }*/
     }
 
     @Override
@@ -2415,10 +2086,7 @@ public class MainWindow implements GLEventListener, KeyListener, MouseListener{
     public void mousePressed(MouseEvent mouseEvent) {
         if (!mouseDown){
             mouseDown = true;
-            //arcStart = new Vector(mouseEvent.getX() / (double)window.getWidth(), mouseEvent.getY() / (double)window.getHeight(), 0);
-
         }
-        //System.out.println("mouse butt: " + mouseEvent.getButton());
         if (mouseEvent.getButton() == MouseEvent.BUTTON2){
             if (mouseEvent.isShiftDown()){
                 viewPanning = true;
@@ -2470,23 +2138,9 @@ public class MainWindow implements GLEventListener, KeyListener, MouseListener{
             } else if (mouseAngleY < -90.f){
                 mouseAngleY = -89.f;
             }
-            Quaternion axisUp = new Quaternion(0.f, 0.f, 0.f, 0.f);
             axisUp.setFromAngleNormalAxis((float)Math.toRadians(mouseAngleX) * 1.f, up);
             direction = axisUp.rotateVector(direction, 0, direction, 0);
             direction = VectorUtil.normalizeVec3(direction);
-            /*if (Math.abs(VectorUtil.dotVec3(direction, new float[]{0.f, 1.f, 0.f}) - 1.f) < 0.001){
-                right = VectorUtil.crossVec3(right, new float[]{0.f, 0.f, 1.f}, direction);
-                System.out.println("BINGO");
-                //up = VectorUtil.crossVec3(up, right, direction);
-                if (mouseAngleY < 0.f){
-                    mouseAngleY = 0;
-                }
-            } else {
-                right = VectorUtil.crossVec3(right, new float[]{0.f, 1.f, 0.f}, direction);
-            }*/
-            /*if (Math.abs(VectorUtil.dotVec3(direction, new float[]{0.f, 1.f, 0.f}) - Math.cos(Math.toRadians(87))) < 0.001 && mouseAngleY < 0){
-                return;
-            }*/
             window.warpPointer(window.getWidth() / 2, window.getHeight() / 2);
             if (VectorUtil.dotVec3(direction, new float[]{0.f, 1.f, 0.f}) > Math.cos(Math.toRadians(10)) && mouseAngleY < 0){
                 right = VectorUtil.crossVec3(right, new float[]{0.f, 1.f, 0.f}, direction);
@@ -2500,7 +2154,6 @@ public class MainWindow implements GLEventListener, KeyListener, MouseListener{
 
             right = VectorUtil.normalizeVec3(right);
             up = VectorUtil.crossVec3(up, right, direction);
-            Quaternion axisRight = new Quaternion(0.f, 0.f, 0.f, 0.f);
             axisRight.setFromAngleNormalAxis((float)Math.toRadians(mouseAngleY) * 1.f, right);
             direction = axisRight.rotateVector(direction, 0, direction, 0);
             up = VectorUtil.crossVec3(up, right, direction);
@@ -2687,6 +2340,10 @@ public class MainWindow implements GLEventListener, KeyListener, MouseListener{
             }
         };
         window.invoke(false, task);
+    }
+
+    public void setAmbientStrength(float v){
+        this.ambientStrength = v;
     }
 
     public boolean getResourcesFreed(){
