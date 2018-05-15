@@ -18,7 +18,7 @@ import java.util.concurrent.atomic.AtomicLong;
  * @author radoslav
  */
 public class Surface {
-    public static double refineFac = 1.6;
+    public static double refineFac = 1.5;
     public static  double maxEdgeLen = 0.7;
     public static IntegerProperty atomsProcessed = new SimpleIntegerProperty(0);
     public static ArrayList<SphericalPatch> convexPatches;

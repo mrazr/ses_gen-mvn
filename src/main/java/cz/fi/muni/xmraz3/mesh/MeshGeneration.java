@@ -38,10 +38,7 @@ public class MeshGeneration {
     private MeshGeneration(){
         THREAD_COUNT = Runtime.getRuntime().availableProcessors();
         v = new Vector[THREAD_COUNT];
-        afms = new AdvancingFrontMethod[THREAD_COUNT];
-        for (int i = 0; i < THREAD_COUNT; ++i){
-            afms[i] = new AdvancingFrontMethod();
-        }
+
         _triangles = new int[THREAD_COUNT];
         for (int i = 0; i < THREAD_COUNT; ++i){
             _triangles[i] = 0;
@@ -65,14 +62,16 @@ public class MeshGeneration {
             if (!a.meshed) {
                 if (a.boundaries.size() > 0) {
                     ArcUtil.indexPoints(a);
-                    if (a.convexPatch) {
-                        afm._initializeConvexAFM(a, Math.toRadians(SesConfig.minAlpha), 0.2 * Surface.maxEdgeLen,Surface.maxEdgeLen * (Math.sqrt(3) / 2.f), SesConfig.edgeLimit, Surface.maxEdgeLen);
-                    } else {
-                        afm._initializeConcaveAFM2(a, Math.toRadians(SesConfig.minAlpha), 0.2 * Surface.maxEdgeLen,Surface.maxEdgeLen * (Math.sqrt(3) / 2.f), SesConfig.edgeLimit, Surface.maxEdgeLen);
-                    }
-                    do {
-                        afm._newMesh();
-                    } while (!afm.atomComplete);
+                    //if (a.convexPatch) {
+                    //    afm._initializeConvexAFM(a, Math.toRadians(SesConfig.minAlpha), 0.2 * Surface.maxEdgeLen,Surface.maxEdgeLen * (Math.sqrt(3) / 2.f), SesConfig.edgeLimit, Surface.maxEdgeLen);
+                    //} else {
+                    //    afm._initializeConcaveAFM2(a, Math.toRadians(SesConfig.minAlpha), 0.2 * Surface.maxEdgeLen,Surface.maxEdgeLen * (Math.sqrt(3) / 2.f), SesConfig.edgeLimit, Surface.maxEdgeLen);
+                    //}
+                    //afm.initializeAFM(a);
+                    //do {
+                    //    afm._newMesh();
+                    //} while (!afm.patchComplete);
+                    afm.meshSphericalPatch(a);
                     if (afm.loop && SesConfig.verbose){
                         System.out.println((a.convexPatch) ? "convex " + i + " looped" : "concave " + i + " looped");
                     }
@@ -119,6 +118,10 @@ public class MeshGeneration {
         //_triangles[0] = _triangles[1] = _triangles[2] = _triangles[3] = 0;
         for (int i = 0; i < THREAD_COUNT; ++i){
             _triangles[i] = 0;
+        }
+       afms = new AdvancingFrontMethod[THREAD_COUNT];
+        for (int i = 0; i < THREAD_COUNT; ++i){
+            afms[i] = new AdvancingFrontMethod();
         }
         Runnable r1 = new Runnable() {
             @Override

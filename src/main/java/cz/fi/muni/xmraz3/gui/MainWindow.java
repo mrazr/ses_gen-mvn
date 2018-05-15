@@ -80,12 +80,12 @@ public class MainWindow implements GLEventListener, KeyListener, MouseListener{
     boolean captureMouse = false;
 
     //view params
-    private float[] cameraPos = new float[] {0.f, 0.f, 0.f};
+    private static float[] cameraPos = new float[] {0.f, 0.f, 0.f};
     private long trianglesCount = 0;
     float horizontalAngle = 3.14f;
     float verticalAngle = 0.0f;
     //private float[] direction = {(float)(Math.cos(verticalAngle) * Math.sin(horizontalAngle)), (float)Math.sin(verticalAngle), (float)(Math.cos(verticalAngle) * Math.cos(horizontalAngle))};
-    private float[] direction = {0.f, 0.f, -1.0f};
+    private static float[] direction = {0.f, 0.f, -1.0f};
     //private float[] right = {(float)Math.sin(horizontalAngle - 3.14f/2.0f), 0f, (float)Math.cos(horizontalAngle - 3.14f/2.0f)};
     private float[] up = {0.0f, 1.0f, 0.0f};
     private float[] right = new float[3];
@@ -110,7 +110,7 @@ public class MainWindow implements GLEventListener, KeyListener, MouseListener{
     //Point3D lightPos;
     private float[] lightPosition = new float[3];
     private float[] cameraTarget = new float[3];
-    private float[] lastCameraTarget = new float[3];
+    private static float[] lastCameraTarget = new float[3];
     PMVMatrix look = new PMVMatrix();
 
     private List<SphericalPatch> convexPatchList;
@@ -166,10 +166,10 @@ public class MainWindow implements GLEventListener, KeyListener, MouseListener{
     private int mouseSelectVao[] = new int[1];
     private Point mouseLocation;
 
-    Quaternion camDir;
-    Quaternion camTar;
-    private boolean slerping = false;
-    private float slerpParam = 0.0f;
+    static Quaternion camDir;
+    static Quaternion camTar;
+    private static boolean slerping = false;
+    private static float slerpParam = 0.0f;
 
     private int[] fbo = new int[1];
     private int[] rbCol = new int[1];
@@ -272,7 +272,7 @@ public class MainWindow implements GLEventListener, KeyListener, MouseListener{
     private AtomicBoolean stoppedRendering = new AtomicBoolean(true);
     private boolean addToSelection;
     private boolean removeSelection;
-    private boolean renderLines = true;
+    private boolean renderLines = false;
     private AtomicBoolean resourcesFreed = new AtomicBoolean(true);
     private int convexFaceCountShow;
 
@@ -775,6 +775,9 @@ public class MainWindow implements GLEventListener, KeyListener, MouseListener{
         float r = (float)Double.longBitsToDouble(Surface.probeRadius.get());
         //this.probeScaleT.glScalef(r, r, r);
         this.probeScaleT.glPushMatrix();
+        direction[0] = (float)Surface.centerOfgravity.getX();
+        direction[1] = (float)Surface.centerOfgravity.getY();
+        direction[2] = (float)Surface.centerOfgravity.getZ();
         camDir = new Quaternion(direction[0] ,direction[1], direction[2], 0.f);
         camDir.normalize();
         camTar = new Quaternion((float) Surface.centerOfgravity.getX() - cameraPos[0], (float) Surface.centerOfgravity.getY() - cameraPos[1], (float) Surface.centerOfgravity.getZ() - cameraPos[2], 0.f);
@@ -1088,7 +1091,7 @@ public class MainWindow implements GLEventListener, KeyListener, MouseListener{
         //lightPos.setY(cameraPos[1]);
         //lightPos.setZ(cameraPos[2]);
         if (slerping && slerpParam < 1.f){
-
+            //System.out.println("Doing slerp");
             //camDir = camDir.setSlerp(camDir, camTar, 0.01f);
             //System.out.println("slerping");
             if (camDir.dot(camTar) < 0.0f){
@@ -2034,18 +2037,7 @@ public class MainWindow implements GLEventListener, KeyListener, MouseListener{
         }
 
         if (keyEvent.getKeyChar() == 'n'){
-            camDir = new Quaternion(direction[0], direction[1], direction[2], 0.f);
-            camDir.normalize();
-            //Vector v = Point.subtractPoints(lastCameraTarget, new Point(cameraPos[0], cameraPos[1], cameraPos[2])).makeUnit();
-            //camTar = new Quaternion((float)v.getX(), (float)v.getY(), (float)v.getZ(), 0.f);
-            float[] vec = new float[3];
-            vec[0] = lastCameraTarget[0] - cameraPos[0];
-            vec[1] = lastCameraTarget[1] - cameraPos[1];
-            vec[2] = lastCameraTarget[2] - cameraPos[2];
-            camTar = new Quaternion(vec[0], vec[1], vec[2], 0.f);
-            camTar.normalize();
-            slerping = true;
-            slerpParam = 0.0f;
+            focusCameraOnTarget();
         }
 
         if (keyEvent.getKeyChar() == 'x'){
@@ -2184,6 +2176,35 @@ public class MainWindow implements GLEventListener, KeyListener, MouseListener{
                 linkNeighbors.add(n.value.id);
             }
         }
+    }
+    public static void focusCameraOnTarget(Point p){
+        GLRunnable task = new GLRunnable() {
+            @Override
+            public boolean run(GLAutoDrawable glAutoDrawable) {
+                lastCameraTarget[0] = (float)p.x;
+                lastCameraTarget[1] = (float)p.y;
+                lastCameraTarget[2] = (float)p.z;
+                focusCameraOnTarget();
+                return true;
+            }
+        };
+       mainWindow.window.invoke(false, task);
+    }
+
+    private static void focusCameraOnTarget(){
+        //System.out.println("focusing");
+        camDir = new Quaternion(direction[0], direction[1], direction[2], 0.f);
+        camDir.normalize();
+        //Vector v = Point.subtractPoints(lastCameraTarget, new Point(cameraPos[0], cameraPos[1], cameraPos[2])).makeUnit();
+        //camTar = new Quaternion((float)v.getX(), (float)v.getY(), (float)v.getZ(), 0.f);
+        float[] vec = new float[3];
+        vec[0] = lastCameraTarget[0] - cameraPos[0];
+        vec[1] = lastCameraTarget[1] - cameraPos[1];
+        vec[2] = lastCameraTarget[2] - cameraPos[2];
+        camTar = new Quaternion(vec[0], vec[1], vec[2], 0.f);
+        camTar.normalize();
+        slerping = true;
+        slerpParam = 0.0f;
     }
     @Override
     public void keyReleased(KeyEvent keyEvent) {
@@ -2615,7 +2636,9 @@ public class MainWindow implements GLEventListener, KeyListener, MouseListener{
                 gl.glGenBuffers(2, lineEbo, 0);
                 //return true;
         resourcesFreed.set(true);
-        System.out.println("resources freed");
+        if (SesConfig.verbose) {
+            System.out.println("GPU resources freed");
+        }
             //}
         //};
         //window.invoke(false, task);
@@ -2654,7 +2677,7 @@ public class MainWindow implements GLEventListener, KeyListener, MouseListener{
     public void requestFreeResources(){
         stopRendering.set(true);
         while (!stoppedRendering.get()){
-            System.out.println("waiting for stop");
+            //System.out.println("waiting for stop");
         }
         GLRunnable task = new GLRunnable() {
             @Override

@@ -84,6 +84,7 @@ public class MainPanelController {
     private AnchorPane anchScrAnchor;
     @FXML
     private TitledPane tlpExport;
+    private static final int tlpExportHeight = 114;
     @FXML
     private TextField txtExportFile;
     @FXML
@@ -94,14 +95,15 @@ public class MainPanelController {
     private VBox vboSettExp;
     @FXML
     private TitledPane tlpAppSettings;
+    private static final int tlpAppSettingsHeight = 224;
     @FXML
     private TitledPane tlpMesh;
+    private static final int tlpMeshHeight = 250;
     @FXML
     private Spinner<Double> spinnerEdgeLength;
     @FXML
-    private Spinner<Double> spinnerEdgeAngle;
-    @FXML
-    private Button btnTriangulate;
+    private Button btnRemesh;
+    private boolean remeshPossible = false;
     @FXML
     private ColorPicker atomColorPick;
     @FXML
@@ -187,10 +189,10 @@ public class MainPanelController {
             }
         });
 
-        btnTriangulate.setOnAction(new EventHandler<ActionEvent>() {
+        btnRemesh.setOnAction(new EventHandler<ActionEvent>() {
             @Override
             public void handle(ActionEvent event) {
-                btnTriangulate.disableProperty().set(true);
+                btnRemesh.disableProperty().set(true);
                 SesConfig.edgeLimit = spinnerEdgeLength.getValue();
                 SurfaceParser.remesh();
             }
@@ -312,27 +314,20 @@ public class MainPanelController {
                 }
             }
         });*/
-        spinnerEdgeAngle.valueProperty().addListener(new ChangeListener<Double>() {
-            @Override
-            public void changed(ObservableValue<? extends Double> observable, Double oldValue, Double newValue) {
-                if (newValue <= 180 && newValue > 20){
-                    SesConfig.minAlpha = newValue;
-                } else {
-
-                }
-            }
-        });
         spinnerEdgeLength.valueProperty().addListener(new ChangeListener<Double>() {
             @Override
             public void changed(ObservableValue<? extends Double> observable, Double oldValue, Double newValue) {
+                if (!remeshPossible){
+                    return;
+                }
                 if (newValue > 0.01 && newValue < 4){
                     //Surface.maxEdgeLen = newValue;
                     //SesConfig.distTolerance = 0.4 * Surface.maxEdgeLen;
                     //SesConfig.edgeLimit = newValue;
                     if (Math.abs(SesConfig.edgeLimit - newValue) > 0.0){
-                        btnTriangulate.disableProperty().set(false);
+                        btnRemesh.disableProperty().set(false);
                     } else {
-                        btnTriangulate.disableProperty().set(true);
+                        btnRemesh.disableProperty().set(true);
                     }
                 }
             }
@@ -340,8 +335,6 @@ public class MainPanelController {
         SpinnerValueFactory<Double> edgeLenFactory = new SpinnerValueFactory.DoubleSpinnerValueFactory(0.2, 0.9, SesConfig.edgeLimit, 0.05);
         spinnerEdgeLength.setValueFactory(edgeLenFactory);
         SpinnerValueFactory<Double> maxAngleFactory = new SpinnerValueFactory.DoubleSpinnerValueFactory(20, 175, 75, 5);
-        spinnerEdgeAngle.setValueFactory(maxAngleFactory);
-        spinnerEdgeAngle.getValueFactory().setValue((double)120);
         txtConcavePatch.setOnAction(new EventHandler<ActionEvent>() {
             @Override
             public void handle(ActionEvent event) {
@@ -430,16 +423,17 @@ public class MainPanelController {
         root.setMinWidth(320);
         //tlpAppSettings.setPrefHeight(224);
         //tlpAppSettings.setExpanded(true);
-        tlpMesh.setPrefHeight(280);
+        tlpMesh.setPrefHeight(tlpMeshHeight);
         tlpMesh.setExpanded(true);
         //vboSettExp.setPrefHeight(300 + 126 + 40);
         vboSettExp.setPrefHeight(600);
-        vboSettExp.setMaxHeight(224 + 280 + 114 + 40 + 126);
+        ///vboSettExp.setMaxHeight(224 + 280 + 114 + 40 + 126);
+        vboSettExp.setMaxHeight(tlpAppSettingsHeight + tlpMeshHeight + tlpExportHeight + 40 + 126);
         tlpAppSettings.expandedProperty().addListener(new ChangeListener<Boolean>() {
             @Override
             public void changed(ObservableValue<? extends Boolean> observable, Boolean oldValue, Boolean newValue) {
-                vboSettExp.setPrefHeight(vboSettExp.getPrefHeight() + ((newValue) ? 1 : -1) * (224));
-                tlpAppSettings.setPrefHeight((newValue) ? 224 : 0);
+                vboSettExp.setPrefHeight(vboSettExp.getPrefHeight() + ((newValue) ? 1 : -1) * (tlpAppSettingsHeight));
+                tlpAppSettings.setPrefHeight((newValue) ? tlpAppSettingsHeight : 0);
                 if (tlpExclusiveExpand){
                     tlpExclusiveExpand = false;
                 } else {
@@ -452,8 +446,8 @@ public class MainPanelController {
         tlpExport.expandedProperty().addListener(new ChangeListener<Boolean>() {
             @Override
             public void changed(ObservableValue<? extends Boolean> observable, Boolean oldValue, Boolean newValue) {
-                vboSettExp.setPrefHeight(vboSettExp.getPrefHeight() + ((newValue) ? 1 : -1) * (114));
-                tlpExport.setPrefHeight((newValue) ? 114 : 0);
+                vboSettExp.setPrefHeight(vboSettExp.getPrefHeight() + ((newValue) ? 1 : -1) * (tlpExportHeight));
+                tlpExport.setPrefHeight((newValue) ? tlpExportHeight : 0);
                 if (tlpExclusiveExpand){
                     tlpExclusiveExpand = false;
                 } else {
@@ -465,8 +459,8 @@ public class MainPanelController {
         tlpMesh.expandedProperty().addListener(new ChangeListener<Boolean>() {
             @Override
             public void changed(ObservableValue<? extends Boolean> observable, Boolean oldValue, Boolean newValue) {
-                vboSettExp.setPrefHeight(vboSettExp.getPrefHeight() + ((newValue) ? 1 : -1) * 280);
-                tlpMesh.setPrefHeight((newValue) ? 280 : 0);
+                vboSettExp.setPrefHeight(vboSettExp.getPrefHeight() + ((newValue) ? 1 : -1) * tlpMeshHeight);
+                tlpMesh.setPrefHeight((newValue) ? tlpMeshHeight: 0);
             }
         });
         sldMouseSensitivity.setDisable(true);
@@ -494,7 +488,7 @@ public class MainPanelController {
     }
 
     private void startParsingJSON(String folder){
-        btnTriangulate.disableProperty().set(true);
+        btnRemesh.disableProperty().set(true);
         SesConfig.edgeLimit = spinnerEdgeLength.getValue();
         FXMLLoader loader = new FXMLLoader();
         loader.setLocation(MainPanel.class.getResource("/fxml/AtomLoadingView.fxml"));
@@ -620,5 +614,9 @@ public class MainPanelController {
             return false;
         }
         return true;
+    }
+
+    public static void setBtnRemeshPossible(boolean val){
+        cont.remeshPossible = val;
     }
 }

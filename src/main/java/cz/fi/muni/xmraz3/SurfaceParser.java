@@ -3,6 +3,7 @@ package cz.fi.muni.xmraz3;
 import com.jogamp.opengl.math.Quaternion;
 import com.jogamp.opengl.math.VectorUtil;
 import cz.fi.muni.xmraz3.gui.MainWindow;
+import cz.fi.muni.xmraz3.gui.controllers.MainPanelController;
 import cz.fi.muni.xmraz3.math.Plane;
 import cz.fi.muni.xmraz3.math.Point;
 import cz.fi.muni.xmraz3.math.Sphere;
@@ -14,8 +15,6 @@ import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
 import org.json.simple.parser.ParseException;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import smile.neighbor.KDTree;
 
 import java.io.*;
@@ -110,6 +109,9 @@ public class SurfaceParser {
                 x = data.getFloat();
                 y = data.getFloat();
                 z = data.getFloat();
+                Surface.centerOfgravity.x += x;
+                Surface.centerOfgravity.y += y;
+                Surface.centerOfgravity.z += z;
                 r = data.getFloat();
                 n.add(new SphericalPatch(new Point(x, y, z), r, true));
             }
@@ -136,8 +138,6 @@ public class SurfaceParser {
                 constructConvexPatchArcs(atom1, atom2, probe1, probe2, centerProbe);
             }
         } catch (IOException e){
-            e.printStackTrace();
-        } catch (Exception e){
             e.printStackTrace();
         }
     }
@@ -502,6 +502,9 @@ public class SurfaceParser {
 
     //main method of this class, calls all of the methods used to parse, construct surface...
     public static void ses_start(String folder) {
+        if (SesConfig.useGUI){
+            MainPanelController.setBtnRemeshPossible(false);
+        }
         long _parseStartTime = System.currentTimeMillis();
         MeshGeneration.reset();
         Surface.triangles.clear();
@@ -549,6 +552,7 @@ public class SurfaceParser {
                 MainWindow.mainWindow.pushConvex();
                 MainWindow.mainWindow.pushConcave();
             }
+            MainWindow.focusCameraOnTarget(Surface.centerOfgravity);
             if (SesConfig.objFile != null || SesConfig.stlFile != null){
                 fillCommonVertices();
                 while (!MeshGeneration.finished.get()){}
@@ -558,6 +562,9 @@ public class SurfaceParser {
                 if (SesConfig.stlFile != null){
                     exportSTLText(SesConfig.stlFile);
                 }
+            }
+            if (SesConfig.useGUI){
+                MainPanelController.setBtnRemeshPossible(true);
             }
             if (SesConfig.verbose) {
                 System.out.println("Convex patches count: " + Surface.convexPatches.size());
@@ -579,6 +586,7 @@ public class SurfaceParser {
 
     public static void remesh(){
         MainWindow.mainWindow.requestFreeResources();
+        MainPanelController.setBtnRemeshPossible(false);
         while (!MainWindow.mainWindow.getResourcesFreed()){}
         MeshGeneration.reset();
         for (SphericalPatch sp : Surface.convexPatches){
@@ -592,7 +600,11 @@ public class SurfaceParser {
         ArcUtil.refineArcsOnSphericalPatches();
         MainWindow.mainWindow.sendPatchesLists(Surface.convexPatches, Surface.triangles);
         MeshGeneration.startMeshing();
+        MainWindow.mainWindow.pushConvex();
+        MainWindow.mainWindow.pushConcave();
+        MainWindow.mainWindow.pushTori();
         fillCommonVertices();
+        MainPanelController.setBtnRemeshPossible(true);
     }
 
     private static void fillCommonVertices(){
