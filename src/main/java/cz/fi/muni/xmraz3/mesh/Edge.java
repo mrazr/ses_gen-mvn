@@ -10,9 +10,6 @@ public class Edge {
     public Edge prev;
     public Point p1;
     public Point p2;
-    //int frontFaceID = -1;
-    //public Arc owner;
-    // for AFM purposes, deals with sitation when there are more than one arcs
     int loopID = 0;
     public Edge(){}
     public Edge(int v1, int v2){

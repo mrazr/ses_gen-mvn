@@ -15,6 +15,11 @@ import java.util.List;
  * @author radoslav
  */
 public class ArcUtil {
+    private static Vector _perpendicular = new Vector(0, 0, 0);
+    private static Vector toStart = new Vector(0, 0, 0);
+    private static Vector toP = new Vector(0, 0, 0);
+    private static Vector v1 = new Vector(0, 0, 0);
+    private static Vector v2 = new Vector(0, 0, 0);
     private static Vector v = new Vector(0, 0, 0);
     private static Point mid = new Point(0, 0, 0);
     private static Point temp = new Point(0, 0, 0);
@@ -22,77 +27,80 @@ public class ArcUtil {
     private static Vector u = new Vector(0, 0, 0);
     private static List<Point> currVrts = new ArrayList<>(17);
     private static List<Point> newVrts = new ArrayList<>(17);
-    public static void refineArc(Arc a, double maxLen, boolean fixedCount, int numOfSubdivisions, boolean fullCircle){
-	int it = 0;
-	//if (a.mid == null){
-	//    v.changeVector(a.end1, a.end2).multiply(0.5f);
-	//    mid.assignTranslation(a.end2, v);
-	//    v.changeVector(mid, a.center).makeUnit().multiply(a.radius);
-	//    if (n.assignNormalVectorOf(a.toEnd1, a.toEnd2).makeUnit().dotProduct(a.normal) < 0.0){//Vector.getNormalVector(a.toEnd1, a.toEnd2).makeUnit().dotProduct(a.normal) < 0.0){
-	//        v.multiply(-1.0);
-	//    }
-	//    a.mid = Point.translatePoint(a.center, v);
-	//}
-	double angle = getAngleR(a);
-	if (!fixedCount && Math.toRadians(280) - angle < 0.0){
-	    refineArc(a, 0, true, 2, false);
-	} else if (!fixedCount && Math.PI - angle < 0.0){
-	    refineArc(a, 0, true, 1, false);
-	}
-	currVrts.clear();
-	newVrts.clear();
-	currVrts.addAll(a.vrts);
-	while ((!fixedCount && Point.distance(currVrts.get(0), currVrts.get(1)) > Surface.refineFac * maxLen) || (fixedCount && it < numOfSubdivisions)) {
-	    for (int i = 0; i < currVrts.size() - ((fullCircle) ? 0 : 1); ++i) {
-		Point tmp = null;
-		if (currVrts.size() == 2){
-		    if (false){//a.mid != null) {
-			//tmp = a.mid;
-		    } else {
-			if (Math.abs(Math.abs(a.toEnd1.dotProduct(a.toEnd2)) - 1.0) < 0.001){
-			    v.assignNormalVectorOf(a.normal, a.toEnd1).makeUnit().multiply(a.radius);
-			} else {
-			    tmp = temp.assignTranslation(a.end1, v.changeVector(a.end2, a.end1).multiply(0.5f));
-			    v.changeVector(tmp, a.center).makeUnit().multiply(a.radius);
-			    if (n.assignNormalVectorOf(a.toEnd1, a.toEnd2).makeUnit().dotProduct(a.normal) < 0.0) {//Vector.getNormalVector(a.toEnd1, a.toEnd2).makeUnit().dotProduct(a.normal) < 0.0){
-				v.multiply(-1.0);
-			    }
-			}
-			tmp = Point.translatePoint(a.center, v);
-		    }
-		} else {
-		    if (i < currVrts.size() - 1) {
-			tmp = temp.assignTranslation(currVrts.get(i), v.changeVector(currVrts.get(i + 1), currVrts.get(i)).multiply(0.5f));
-		    } else {
-			tmp = temp.assignTranslation(currVrts.get(i), v.changeVector(currVrts.get(0), currVrts.get(i)).multiply(0.5f));
-		    }
-		    v.changeVector(tmp, a.center).makeUnit().multiply(a.radius);
-		    tmp = Point.translatePoint(a.center, v);
-		}
+    private static Vector neighborToAtom = new Vector(0, 0, 0);
+    private static Vector atomToNeighbor = new Vector(0, 0, 0);
+    private static Vector atomToEnd = new Vector(0, 0, 0);
+    private static Vector projection = new Vector(0, 0, 0);
+    private static Vector u1 = new Vector(0, 0, 0);
+    private static Vector u2 = new Vector(0, 0, 0);
+    private static float[] _v = new float[3];
+    private static Quaternion qRot = new Quaternion();
+    private static List<Arc> queue = new ArrayList<>();
+    private static List<Arc> newB = new ArrayList<>(10);
+    private static float[] _vData = new float[3];
+    private static float[] _vData2 = new float[3];
+    private static final double PLANE_EPS = 0.001;
+    private static Plane plane = new Plane(new Point(0, 0, 0), new Vector(0, 0, 0));
+    private static Vector _fcaVector = new Vector(0, 0, 0);
 
-		newVrts.add(currVrts.get(i));
-		newVrts.add(tmp);
-		if (!fullCircle && i == currVrts.size() - 2) {
-		    newVrts.add(currVrts.get(i + 1));
-		}
-	    }
-	    currVrts.clear();
-	    currVrts.addAll(newVrts);
-	    newVrts.clear();
-	    it++;
-	}
-	a.vrts.clear();
-	a.vrts.addAll(currVrts);
+    public static void refineArc(Arc a, double maxLen, boolean fixedCount, int numOfSubdivisions, boolean fullCircle){
+        int it = 0;
+        double angle = getAngleR(a);
+        if (!fixedCount && Math.toRadians(280) - angle < 0.0){
+            refineArc(a, 0, true, 2, false);
+        } else if (!fixedCount && Math.PI - angle < 0.0){
+            refineArc(a, 0, true, 1, false);
+        }
+        currVrts.clear();
+        newVrts.clear();
+        currVrts.addAll(a.vrts);
+        while ((!fixedCount && Point.distance(currVrts.get(0), currVrts.get(1)) > Surface.refineFac * maxLen) || (fixedCount && it < numOfSubdivisions)) {
+            for (int i = 0; i < currVrts.size() - ((fullCircle) ? 0 : 1); ++i) {
+            Point tmp = null;
+            if (currVrts.size() == 2){
+                if (Math.abs(Math.abs(a.toEnd1.dotProduct(a.toEnd2)) - 1.0) < 0.001){
+                    v.assignNormalVectorOf(a.normal, a.toEnd1).makeUnit().multiply(a.radius);
+                } else {
+                    tmp = temp.assignTranslation(a.end1, v.changeVector(a.end2, a.end1).multiply(0.5f));
+                    v.changeVector(tmp, a.center).makeUnit().multiply(a.radius);
+                    if (n.assignNormalVectorOf(a.toEnd1, a.toEnd2).makeUnit().dotProduct(a.normal) < 0.0) {//Vector.getNormalVector(a.toEnd1, a.toEnd2).makeUnit().dotProduct(a.normal) < 0.0){
+                    v.multiply(-1.0);
+                    }
+                }
+                tmp = Point.translatePoint(a.center, v);
+            } else {
+                if (i < currVrts.size() - 1) {
+                tmp = temp.assignTranslation(currVrts.get(i), v.changeVector(currVrts.get(i + 1), currVrts.get(i)).multiply(0.5f));
+                } else {
+                tmp = temp.assignTranslation(currVrts.get(i), v.changeVector(currVrts.get(0), currVrts.get(i)).multiply(0.5f));
+                }
+                v.changeVector(tmp, a.center).makeUnit().multiply(a.radius);
+                tmp = Point.translatePoint(a.center, v);
+            }
+
+            newVrts.add(currVrts.get(i));
+            newVrts.add(tmp);
+            if (!fullCircle && i == currVrts.size() - 2) {
+                newVrts.add(currVrts.get(i + 1));
+            }
+            }
+            currVrts.clear();
+            currVrts.addAll(newVrts);
+            newVrts.clear();
+            it++;
+        }
+        a.vrts.clear();
+        a.vrts.addAll(currVrts);
     }
 
     public static void refineOppositeArcs(Arc a1, Arc a2, double maxlen){
         Arc longer = (a1.radius - a2.radius > 0.0) ? a1 : a2;
         Arc shorter = (a1 == longer) ? a2 : a1;
-	int currentLevel = getSubdivisionLevel(longer);
-	int subdivisionDifference = currentLevel - getSubdivisionLevel(shorter);
-	refineArc(longer, maxlen, false, 0, false);//, null);//edgeSplit.get(longer.owner.id));
-	int numOfDivs = subdivisionDifference + getSubdivisionLevel(longer) - currentLevel;
-	refineArc(shorter, 0, true, numOfDivs, false);//, null);//edgeSplit.get(shorter.owner.id));
+        int currentLevel = getSubdivisionLevel(longer);
+        int subdivisionDifference = currentLevel - getSubdivisionLevel(shorter);
+        refineArc(longer, maxlen, false, 0, false);//, null);//edgeSplit.get(longer.owner.id));
+        int numOfDivs = subdivisionDifference + getSubdivisionLevel(longer) - currentLevel;
+        refineArc(shorter, 0, true, numOfDivs, false);//, null);//edgeSplit.get(shorter.owner.id));
     }
 
     public static void buildEdges(Boundary b, boolean clear){
@@ -122,15 +130,7 @@ public class ArcUtil {
         return phi;
     }
 
-    private static Vector neighborToAtom = new Vector(0, 0, 0);
-    private static Vector atomToNeighbor = new Vector(0, 0, 0);
-    private static Vector atomToEnd = new Vector(0, 0, 0);
-    private static Vector projection = new Vector(0, 0, 0);
-    private static Vector u1 = new Vector(0, 0, 0);
-    private static Vector u2 = new Vector(0, 0, 0);
-    private static float[] _v = new float[3];
-    private static Quaternion qRot = new Quaternion();
-    
+
     public static Arc[] makeNewArc(SphericalPatch sp, SphericalPatch neighbor, Point e1, Point e2, Point mid, Point midProbe, boolean circular){
         if (!sp.neighbours.contains(neighbor)){
             sp.neighbours.add(neighbor);
@@ -182,8 +182,6 @@ public class ArcUtil {
         a.midProbe = midProbe;
         return arc;
     }
-    private static List<Arc> queue = new ArrayList<>();
-    private static List<Arc> newB = new ArrayList<>(10);
     public static void linkArcs(SphericalPatch sp) {
         try {
             queue.clear();
@@ -201,33 +199,25 @@ public class ArcUtil {
                 int i = 0;
                 int iterator = 0;
                 setValid = true;
-                while (Point.distance(loopEnd, pivot) > 0.001) {//Point.subtractPoints(loopEnd, pivot).sqrtMagnitude() > 0.001) {
+                while (Point.distance(loopEnd, pivot) > 0.001) {
                     if (iterator > sp.arcs.size() + 10) {
                         loopEndIdx++;
                         if (loopEndIdx >= queue.size()) {
-                            //System.err.println("Cycle detected for atom id:" + sp.id);
-                            //System.out.println("Iterator: " + iterator);
-                            //System.out.println("Queue size: " + queue.size());
-                            //Main.convexPatches.remove(sp);
                             sp.valid = (sp.boundaries.size() > 0);
                             return;
                         } else {
-                            //loopEndIdx++;
                             setValid = false;
                             break;
                         }
-                        //return;
                     }
                     iterator++;
                     if (queue.size() == 0) {
-                        //System.err.println("Atom " + sp.id);
                         setValid = false;
                         break;
                     }
                     Arc lop = queue.get(i);
-                    //Vector vLop = lop.toEnd1;
                     Point pLop = lop.end1;
-                    if (Point.distance(pLop, pivot) < 0.001) {//Point.subtractPoints(pLop, pivot).sqrtMagnitude() < 0.001) {
+                    if (Point.distance(pLop, pivot) < 0.001) {
                         boolean betterCand = false;
                         Arc tmp = lop;
                         for (int j = i + 1; j < queue.size(); ++j) {
@@ -235,20 +225,14 @@ public class ArcUtil {
                             if (Point.distance(l.end2, tL.end1) < Point.distance(l.end2, lop.end1)) {//Point.subtractPoints(l.end2, tL.end1).sqrtMagnitude() < Point.subtractPoints(l.end2, lop.end1).sqrtMagnitude()) {
                                 lop = tL;
                                 betterCand = true;
-                                //System.err.println("Found a better candidate: " + this.id);
                             }
                         }
                         newB.add(lop);
                         queue.remove(lop);
-                        //pivot = lop.toEnd2;
                         pivot = lop.end2;
                         lop.end1 = l.end2;
-                        //lop.lines.get(0).p1 = l.end2;
                         lop.vrts.remove(0);
                         lop.vrts.add(0, l.end2);
-
-                        //l.endEdge2.next = lop.endEdge1;
-                        //lop.endEdge1.prev = l.endEdge2;
                         l = lop;
                         iterator = 0;
                     } else {
@@ -256,24 +240,14 @@ public class ArcUtil {
                     }
                     if (i >= queue.size()) {
                         i = 0;
-                        //completeBoundary = false;
-                        //System.err.println("atom id: " + this.id + " incomplete boundary");m10480
-                        //return;
                     }
                 }
-                /*if (newB.size() < 2){
-                    setValid = false;
-                }*/
                 if (setValid && newB.size() > 1) {
                     newB.get(0).end1 = l.end2;
-                    //newB.get(0).lines.get(0).p1 = l.end2;
                     newB.get(0).vrts.remove(0);
                     newB.get(0).vrts.add(0, l.end2);
-                    //newB.get(0).endEdge1.prev = l.endEdge2;
-                    //l.endEdge2.next = newB.get(0).endEdge1;
                     Boundary b = new Boundary();
                     b.patch = sp;
-                    //b.arcs = newB;
                     b.arcs.addAll(newB);
                     sp.boundaries.add(b);
                     ArcUtil.buildEdges(b, true);
@@ -319,42 +293,40 @@ public class ArcUtil {
     }
 
     private static boolean checkForOwnership(Boundary b1, Boundary b2){
-	Point p1 = b1.arcs.get(0).end1;
-	if (b1.arcs.size() < 2){
-	    return false;
-	}
-	for (int i = 1; i < b1.arcs.size(); ++i) {
-	    Arc l = b1.arcs.get(i);
-	    u1.changeVector(l.end2, p1).makeUnit();
-	    u2.changeVector(l.end1, p1).makeUnit();
-	    if (Math.abs(u1.dotProduct(u2) - 1.0) > 0.01) {
-		break;
-	    }
-	}
-	n.assignNormalVectorOf(u1, u2).makeUnit().multiply(-1.0);
-	double maxY = 42000.0;
-	for (int i = 0; i < b1.arcs.size(); ++i) {
-	    Arc l = b1.arcs.get(i);
-	    u.changeVector(l.end2, b1.patch.sphere.center);
-	    double dot = u.dotProduct(n);
-	    if (dot < maxY) {
-		maxY = dot;
-	    }
-	}
-	boolean isInside = true;
-	for (int i = 0; i < b2.arcs.size(); ++i) {
-	    Arc l = b2.arcs.get(i);
-	    u.changeVector(l.end2, b2.patch.sphere.center);
-	    if (u.dotProduct(n) < maxY) {
-		isInside = false;
-		break;
-	    }
-	}
-	return isInside;
+        Point p1 = b1.arcs.get(0).end1;
+        if (b1.arcs.size() < 2){
+            return false;
+        }
+        for (int i = 1; i < b1.arcs.size(); ++i) {
+            Arc l = b1.arcs.get(i);
+            u1.changeVector(l.end2, p1).makeUnit();
+            u2.changeVector(l.end1, p1).makeUnit();
+            if (Math.abs(u1.dotProduct(u2) - 1.0) > 0.01) {
+            break;
+            }
+        }
+        n.assignNormalVectorOf(u1, u2).makeUnit().multiply(-1.0);
+        double maxY = 42000.0;
+        for (int i = 0; i < b1.arcs.size(); ++i) {
+            Arc l = b1.arcs.get(i);
+            u.changeVector(l.end2, b1.patch.sphere.center);
+            double dot = u.dotProduct(n);
+            if (dot < maxY) {
+            maxY = dot;
+            }
+        }
+        boolean isInside = true;
+        for (int i = 0; i < b2.arcs.size(); ++i) {
+            Arc l = b2.arcs.get(i);
+            u.changeVector(l.end2, b2.patch.sphere.center);
+            if (u.dotProduct(n) < maxY) {
+            isInside = false;
+            break;
+            }
+        }
+        return isInside;
     }
 
-    private static float[] _vData = new float[3];
-    private static float[] _vData2 = new float[3];
     public static List<Point> generateCircArc(Point start, Point end, Point center, double radius, int n, boolean overPI, List<Point> vrtsList){
         v1.changeVector(start, center).makeUnit(); //tostart
         v2.changeVector(end, center).makeUnit(); //toend
@@ -386,16 +358,6 @@ public class ArcUtil {
         return vrts;
     }
 
-    public static void replaceMiddleVertex(Arc a, Point newMid){
-        int idx = (a.vrts.size() - 1) / 2;
-        a.vrts.remove(idx);
-        a.vrts.add(idx, newMid);
-        //a.mid = newMid;
-    }
-
-    private static final double PLANE_EPS = 0.001;
-    private static Plane plane = new Plane(new Point(0, 0, 0), new Vector(0, 0, 0));
-    private static Vector _fcaVector = new Vector(0, 0, 0);
 
     public static Arc findContainingArc(Point p, Plane circle, SphericalPatch sp, Arc exclude){
         for (int i = 0; i < sp.boundaries.size(); ++i){
@@ -487,10 +449,6 @@ public class ArcUtil {
         }
         return null;
     }
-    private static Vector toStart = new Vector(0, 0, 0);
-    private static Vector toP = new Vector(0, 0, 0);
-    private static Vector v1 = new Vector(0, 0, 0);
-    private static Vector v2 = new Vector(0, 0, 0);
     public static Point findClosestPointOnCircle(List<Point> points, Point start, boolean includeStart, Point center, Vector normal, boolean next){
         double angle = 2 * Math.PI;
         Point closest = null;
@@ -561,7 +519,6 @@ public class ArcUtil {
         return newA;
     }
 
-    private static Vector _perpendicular = new Vector(0, 0, 0);
     public static Boundary generateCircularBoundary(Plane circle, double radius){
         circle.v.getPerpendicularVector(_perpendicular).makeUnit().multiply(radius);
         n.assignNormalVectorOf(circle.v, _perpendicular).makeUnit().multiply(radius); //perp2
@@ -574,20 +531,16 @@ public class ArcUtil {
         Point p2 = Point.translatePoint(circle.p, _perpendicular);
         a1.setEndPoints(p1, p2, false);
         a1.setNormal(circle.v);
-        //a1.mid = mid1;
         a1.vrts.add(p1);
         a1.vrts.add(mid1);
         a1.vrts.add(p2);
-        //ArcUtil.refineArc(a1, 0, true, 1, false);
         ArcUtil.refineArc(a1, Surface.maxEdgeLen, false, 0, false);
         Arc a2 = new Arc(circle.p, radius);
         a2.setEndPoints(p2, p1, false);
         a2.setNormal(circle.v);
-        //a2.mid = mid2;
         a2.vrts.add(p2);
         a2.vrts.add(mid2);
         a2.vrts.add(p1);
-        //ArcUtil.refineArc(a2, 0, true, 1, false);
         ArcUtil.refineArc(a2, Surface.maxEdgeLen, false, 0, false);
         Boundary b = new Boundary();
         b.arcs.add(a1);
@@ -673,32 +626,6 @@ public class ArcUtil {
         }
     }
 
-    private static void _resetArc(Arc a){
-        if (a.baseSubdivision < 0){
-            int c = 32;
-        }
-        byte currLevel = getSubdivisionLevel(a);
-        if (a.baseSubdivision > currLevel){
-            int s = 2;
-        }
-        if (a.baseSubdivision == currLevel){
-            //a.refined.vrts.clear();
-            //a.refined = null;
-            return;
-        }
-        List<Point> tmp = new ArrayList<>(a.vrts);
-        a.vrts.clear();
-        int step = (int)Math.pow(2, currLevel - a.baseSubdivision);
-        for (int i = 0; i < tmp.size(); i += step){
-            a.vrts.add(tmp.get(i));
-        }
-        //a.refined.vrts.clear();
-        //a.refined = null;
-        if (getSubdivisionLevel(a) != a.baseSubdivision){
-            int c = 43;
-        }
-    }
-    
     public static void resetArc(Arc a){
 	    a.vrts.clear();
 	    a.vrts.add(a.end1);
@@ -741,17 +668,6 @@ public class ArcUtil {
         } catch (Exception e){
             e.printStackTrace();
         }
-    }
-
-    public static boolean inco(SphericalPatch sp){
-        for (Boundary b : sp.boundaries){
-            for (Arc a : b.arcs){
-                if (a.baseSubdivision > getSubdivisionLevel(a)){
-                    return true;
-                }
-            }
-        }
-        return false;
     }
 
     public static void nestConvexPatchBoundaries(){

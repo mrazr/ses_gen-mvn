@@ -121,7 +121,6 @@ public class MainPanelController {
     @FXML
     private Slider sldMouseSensitivity;
     private boolean tlpExclusiveExpand = false;
-    private boolean updateEdgeAngle = true;
     public static Stage root;
     public static MainPanelController cont;
     private static final int tbpHeight = 160;
@@ -263,10 +262,6 @@ public class MainPanelController {
             @Override
             public void handle(ActionEvent event) {
                 try {
-                    /*int atomId = Integer.parseInt(txtConvexPatch.getText());
-                    if (atomId >= 0 && atomId < Main.convexPatches.size()){
-                        MainPanel.mainView.selectedAtom.set(atomId);
-                    }*/
                     String[] ids = txtConvexPatch.getText().split(",");
                     List<Integer> ints = new ArrayList<>();
                     for (String id : ids){
@@ -313,9 +308,6 @@ public class MainPanelController {
                     return;
                 }
                 if (newValue > 0.01 && newValue < 4){
-                    //Surface.maxEdgeLen = newValue;
-                    //SesConfig.distTolerance = 0.4 * Surface.maxEdgeLen;
-                    //SesConfig.edgeLimit = newValue;
                     if (Math.abs(SesConfig.edgeLimit - newValue) > 0.0){
                         btnRemesh.disableProperty().set(false);
                     } else {
@@ -331,10 +323,6 @@ public class MainPanelController {
             @Override
             public void handle(ActionEvent event) {
                 try {
-                    /*int concId = Integer.parseInt(txtConcavePatch.getText());
-                    if (concId >= 0 && concId < Main.triangles.size()){
-                        MainPanel.mainView.selectedConcaveP.set(concId);
-                    }*/
                     String[] ids = txtConcavePatch.getText().split(",");
                     List<Integer> ints = new ArrayList<>();
                     for (String id : ids){
@@ -581,7 +569,6 @@ public class MainPanelController {
             return false;
         }
         String[] files = f.list();
-        //String[] jsons = new String[]{"atoms.json", "rectangles.json", "triangles.json", "info.json"};
         List<String> jsons = new ArrayList<>();
         jsons.add("atoms.dat");
         jsons.add("rectangles.dat");
@@ -604,4 +591,5 @@ public class MainPanelController {
     public static void setBtnRemeshPossible(boolean val){
         cont.remeshPossible = val;
     }
+
 }

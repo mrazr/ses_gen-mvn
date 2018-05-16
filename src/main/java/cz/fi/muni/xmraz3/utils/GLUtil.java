@@ -5,6 +5,7 @@ import com.jogamp.opengl.GL4;
 import com.jogamp.opengl.GLContext;
 import com.jogamp.opengl.glu.GLU;
 import com.jogamp.opengl.util.GLBuffers;
+import cz.fi.muni.xmraz3.SesConfig;
 import cz.fi.muni.xmraz3.mesh.Face;
 import cz.fi.muni.xmraz3.math.Point;
 
@@ -34,10 +35,12 @@ public class GLUtil {
         checkOpenGLError();
         gl.glGetShaderiv(vshader, GL_COMPILE_STATUS, vertCompiled, 0);
 
-        if (vertCompiled[0] == 1)
-        { System.out.println(". . . vertex compilation success.");
-        } else
-        { System.err.println(". . . vertex compilation failed.");
+        if (vertCompiled[0] == 1) {
+            if (SesConfig.verbose) {
+                System.out.println(". . . vertex compilation success.");
+            }
+        } else {
+            System.err.println(". . . vertex compilation failed.");
             printShaderLog(vshader);
         }
 
@@ -48,19 +51,22 @@ public class GLUtil {
         checkOpenGLError();
         gl.glGetShaderiv(fshader, GL_COMPILE_STATUS, fragCompiled, 0);
 
-        if (fragCompiled[0] == 1)
-        { System.out.println(". . . fragment compilation success.");
-        } else
-        { System.err.println(". . . fragment compilation failed.");
+        if (fragCompiled[0] == 1) {
+            if (SesConfig.verbose) {
+                System.out.println(". . . fragment compilation success.");
+            }
+        } else {
+            System.err.println(". . . fragment compilation failed.");
             printShaderLog(fshader);
         }
 
         if ((vertCompiled[0] != 1) || (fragCompiled[0] != 1))
         { System.err.println("\nCompilation error; return-flags:");
             System.err.println(" vertCompiled = " + vertCompiled[0] + " ; fragCompiled = " + fragCompiled[0]);
-        } else
-        {
-            System.out.println("Successful compilation");
+        } else {
+            if (SesConfig.verbose) {
+                System.out.println("Successful compilation");
+            }
         }
 
         int vfprogram = gl.glCreateProgram();
@@ -70,7 +76,9 @@ public class GLUtil {
         checkOpenGLError();
         gl.glGetProgramiv(vfprogram, GL_LINK_STATUS, linked,0);
         if (linked[0] == 1) {
-            System.out.println(". . . linking succeeded.");
+            if (SesConfig.verbose) {
+                System.out.println(". . . linking succeeded.");
+            }
         } else {
             System.err.println(". . . linking failed.");
             printProgramLog(vfprogram);
@@ -135,9 +143,6 @@ public class GLUtil {
             System.exit(-1);
             return null;
         }
-        /*for (String l : lines){
-            System.out.println(l);
-        }*/
         return lines.toArray(new String[1]);
     }
 
