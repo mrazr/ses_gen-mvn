@@ -44,11 +44,11 @@ public class Main {
             String raw = SurfaceParser.loadFile(Paths.get(SesConfig.inputFolder).resolve("info.json").toString());
             SurfaceParser.parseSesConfig(raw);
             SurfaceParser.ses_start(SesConfig.inputFolder);
-            try {
-                System.in.read();
-            } catch (Exception e){
-                e.printStackTrace();
-            }
+//            try {
+//                System.in.read();
+//            } catch (Exception e){
+//                e.printStackTrace();
+//            }
             writeResults();
         }
     }
@@ -61,11 +61,11 @@ public class Main {
         try (FileWriter fw = new FileWriter(Paths.get(SesConfig.inputFolder).getFileName().toString() + ".txt", true)){
             fw.write(Double.toString(SesConfig.edgeLimit));
             fw.write(" & ");
-            fw.write(Long.toString(MeshGeneration.convexMeshTime));
-            fw.write(" & ");
-            fw.write(Long.toString(MeshGeneration.concaveMeshTime));
+            fw.write(Long.toString(MeshGeneration.convexMeshTime + MeshGeneration.concaveMeshTime));
             fw.write(" & ");
             fw.write(Long.toString(MeshGeneration.toriMeshTime));
+            fw.write(" & ");
+            fw.write(Long.toString(SurfaceParser.parseConstructTime));
             fw.write(" & ");
             fw.write(Long.toString(MeshGeneration.trianglesGenerated.get()));
             fw.write(" & ");
