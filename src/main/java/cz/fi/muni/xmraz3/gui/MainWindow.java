@@ -12,12 +12,14 @@ import com.jogamp.opengl.math.VectorUtil;
 import com.jogamp.opengl.util.Animator;
 import com.jogamp.opengl.util.GLBuffers;
 import com.jogamp.opengl.util.PMVMatrix;
-import com.jogamp.opengl.util.texture.Texture;
-import cz.fi.muni.xmraz3.*;
+import cz.fi.muni.xmraz3.SesConfig;
+import cz.fi.muni.xmraz3.Surface;
 import cz.fi.muni.xmraz3.gui.controllers.MainPanelController;
 import cz.fi.muni.xmraz3.math.Point;
 import cz.fi.muni.xmraz3.math.Vector;
-import cz.fi.muni.xmraz3.mesh.*;
+import cz.fi.muni.xmraz3.mesh.Boundary;
+import cz.fi.muni.xmraz3.mesh.SphericalPatch;
+import cz.fi.muni.xmraz3.mesh.ToroidalPatch;
 import cz.fi.muni.xmraz3.utils.GLUtil;
 import cz.fi.muni.xmraz3.utils.PatchUtil;
 import javafx.application.Platform;
@@ -35,7 +37,6 @@ import java.nio.IntBuffer;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
 
 public class MainWindow implements GLEventListener, KeyListener, MouseListener{
     public static MainWindow mainWindow = null;
@@ -44,64 +45,22 @@ public class MainWindow implements GLEventListener, KeyListener, MouseListener{
     private int mainProgram;
     private int rectProgram;
     public Stage controlPanel;
-    //public boolean isPinned = false;
     public BooleanProperty isPinned = new SimpleBooleanProperty(false);
     private GL4 gl;
-
-    List<Point> vrts;
-    List<Edge> lines;
-    boolean isNew = false;
-
-    private float[] data = {
-            0.f, 0.f, -1.f,
-            0.25f, 0.f, -1.f,
-            0.f, 0.25f, -1.f,
-            0.25f, 0.25f, -1.f
-    };
-    private int[] indices = {
-            /*0, 2, 1,
-            1, 2, 3*/
-            0, 2,
-            2, 1,
-            1, 0,
-
-            1, 2,
-            2, 3,
-            3, 1
-    };
-
-    private int[] vao = new int[1];
-    private int[] vbo = new int[1];
-    private int[] ebo = new int[1];
-    private int numOfVrts = 0;
-    private int numOfIndices = 0;
-    private boolean buffersInitialized = false;
 
     boolean captureMouse = false;
 
     //view params
     private static float[] cameraPos = new float[] {0.f, 0.f, 0.f};
-    private long trianglesCount = 0;
-    float horizontalAngle = 3.14f;
-    float verticalAngle = 0.0f;
-    //private float[] direction = {(float)(Math.cos(verticalAngle) * Math.sin(horizontalAngle)), (float)Math.sin(verticalAngle), (float)(Math.cos(verticalAngle) * Math.cos(horizontalAngle))};
     private static float[] direction = {0.f, 0.f, -1.0f};
-    //private float[] right = {(float)Math.sin(horizontalAngle - 3.14f/2.0f), 0f, (float)Math.cos(horizontalAngle - 3.14f/2.0f)};
     private float[] up = {0.0f, 1.0f, 0.0f};
     private float[] right = new float[3];
-    float initialFoV = 45.f;
     float speed = .03f;
     float mouseSpeed = 0.02f;
-    private boolean dontConsider = false;
     float deltaTime = 0;
     float mouseAngleX = 0.f;
     float mouseAngleY = 0.f;
     float angle = 0.0f;
-    private int pvLoc = -1;
-    private int modelLoc = -1;
-    private float modelX = 0.f;
-    private float modelY = 0.f;
-    private float modelZ = -2.f;
     private long lastTick;
     private PMVMatrix _projMat = new PMVMatrix();
     private float[] lightPosition = new float[3];
@@ -123,8 +82,6 @@ public class MainWindow implements GLEventListener, KeyListener, MouseListener{
     private List<SphericalPatch> concavePatchList;
     private boolean renderCPs = false;
 
-
-
     private float[] toriPatchCol = {51 / 255.f, 77 / 255.f, 177 / 255.f};
     private float[] concavePatchCol = {31 / 255.f, 143 / 255.f, 0 / 255.f};
     private float[] convexPatchCol = {197 / 255.f, 20 / 255.f, 20 / 255.f};
@@ -137,8 +94,6 @@ public class MainWindow implements GLEventListener, KeyListener, MouseListener{
     private float zoomSpeed = 0.1f;
     private boolean cullFaces = true;
     private boolean viewPanning = false;
-    private boolean raySelection = false;
-    private Vector arcStart;
     private boolean mouseSelect = false;
     private int mouseSelectVbo[] = new int[1];
     private int mouseSelectVao[] = new int[1];
@@ -152,7 +107,7 @@ public class MainWindow implements GLEventListener, KeyListener, MouseListener{
     private int[] fbo = new int[1];
     private int[] rbCol = new int[1];
     private int[] rbDep = new int[1];
-    private int selProgram = -1;
+    private int selectProgram = -1;
     private boolean moved = false;
     private boolean renderBuffersInit = false;
     private int uniVertexOffsets = -1;
@@ -162,12 +117,10 @@ public class MainWindow implements GLEventListener, KeyListener, MouseListener{
     private int convexVerticesCount = 0;
     private int concaveVerticesCount = 0;
     private int toriVerticesCount = 0;
-    private Texture vertexOffsets;
     private boolean selectInitialized = false;
     private int[] tbo = new int[1];
     private int[] tboTex = new int[1];
 
-    private long fpsLastTick = 0;
     private List<Integer> convexPatchesSelect = new ArrayList<>();
     private List<Integer> toriPatchesSelect = new ArrayList<>();
     private List<Integer> concavePatchesSelect = new ArrayList<>();
@@ -183,11 +136,6 @@ public class MainWindow implements GLEventListener, KeyListener, MouseListener{
     private int[] meshVao = new int[3];
     private int[] meshVbo = new int[3];
     private int[] meshEbo = new int[2];
-
-    private AtomicInteger convexMeshThreadsCounter = new AtomicInteger(0);
-    private AtomicInteger concaveMeshThreadsCounter = new AtomicInteger(0);
-    private AtomicInteger toriMeshThreadsCounter = new AtomicInteger(0);
-    private final int threadCount = 4;
 
     private boolean convexMeshInitialized = false;
     private boolean concaveMeshInitialized = false;
@@ -218,11 +166,6 @@ public class MainWindow implements GLEventListener, KeyListener, MouseListener{
     private float scaleFactor = 1.0f;
     private boolean drawModeUpdate;
     private PMVMatrix modelMAT = new PMVMatrix();
-    private Matrix4 normalMatrix = new Matrix4();
-    private double angleX = 0.0;
-    private double angleY = 0.0;
-    private int lastX;
-    private int lastY;
     private boolean rotating = true;
     private float ambientStrength = 0.1f;
 
@@ -246,7 +189,6 @@ public class MainWindow implements GLEventListener, KeyListener, MouseListener{
     private int uniCameraPosLoc = -1;
     private IntBuffer zeroes = GLBuffers.newDirectIntBuffer(new int[]{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0});
 
-    private boolean render = false;
     private AtomicBoolean stopRendering = new AtomicBoolean(true);
     private AtomicBoolean stoppedRendering = new AtomicBoolean(true);
     private boolean addToSelection;
@@ -261,6 +203,7 @@ public class MainWindow implements GLEventListener, KeyListener, MouseListener{
 
     Quaternion axisUp = new Quaternion(0.f, 0.f, 0.f, 0.f);
     Quaternion axisRight = new Quaternion(0.f, 0.f, 0.f, 0.f);
+
     public void changeColor(int meshType, float r, float g, float b){
         newColor[0] = r;
         newColor[1] = g;
@@ -282,28 +225,19 @@ public class MainWindow implements GLEventListener, KeyListener, MouseListener{
         ptr[1] = g;
         ptr[2] = b;
     }
+
     public void sendPatchesLists(List<SphericalPatch> convex, List<SphericalPatch> concave){
         stopRendering.set(true);
         while (!stoppedRendering.get()){
-            System.out.println("waiting for stop");
         }
         GLRunnable task = new GLRunnable() {
             @Override
             public boolean run(GLAutoDrawable glAutoDrawable) {
                 freeGLResources();
-
-                ///while (!stoppedRendering.get());
                 sendConvexPatchList(convex);
                 sendConcavePatchList(concave);
-                //sendConvexPatches2GPU();
-                //sendToriPatches2GPU();
-                //sendConcavePathes2GPU();
-               //pushConcaveEdgesToGPU();
-               //pushConvexEdgesToGPU();
-                //render = true;
                 pushBoundariesToGPU(true);
                 pushBoundariesToGPU(false);
-                //animator.start();
                 stopRendering.set(false);
                 stoppedRendering.set(false);
                 resourcesFreed.set(false);
@@ -396,7 +330,6 @@ public class MainWindow implements GLEventListener, KeyListener, MouseListener{
         window.setSize(800, 600);
         window.setTitle("SES");
         float[] scale = new float[2];
-        scale = window.getCurrentSurfaceScale(scale);
         window.addWindowListener(new WindowAdapter() {
             @Override
             public void windowDestroyed(WindowEvent windowEvent) {
@@ -545,11 +478,11 @@ public class MainWindow implements GLEventListener, KeyListener, MouseListener{
         uniMvInverseLoc = gl.glGetUniformLocation(mainProgram, "mvInverse");
         uniCameraPosLoc = gl.glGetUniformLocation(mainProgram, "cameraPos");
         uniLightPosLoc = gl.glGetUniformLocation(mainProgram, "lightPos");
-        selProgram = GLUtil.createShaderProgram(getClass().getClassLoader().getResourceAsStream("shaders/sel2.vert"), getClass().getClassLoader().getResourceAsStream("shaders/sel.frag"));
-        uniEnd = gl.glGetUniformLocation(selProgram, "end");
-        uniStart = gl.glGetUniformLocation(selProgram, "start");
-        uniGlobalOffset = gl.glGetUniformLocation(selProgram, "globalOffset");
-        uniVertexOffsets = gl.glGetUniformLocation(selProgram, "u_offset_Tex");
+        selectProgram = GLUtil.createShaderProgram(getClass().getClassLoader().getResourceAsStream("shaders/selectShader.vert"), getClass().getClassLoader().getResourceAsStream("shaders/selectShader.frag"));
+        uniEnd = gl.glGetUniformLocation(selectProgram, "end");
+        uniStart = gl.glGetUniformLocation(selectProgram, "start");
+        uniGlobalOffset = gl.glGetUniformLocation(selectProgram, "globalOffset");
+        uniVertexOffsets = gl.glGetUniformLocation(selectProgram, "u_offset_Tex");
         right = VectorUtil.crossVec3(right, direction, up);
         up = VectorUtil.normalizeVec3(up);
         right = VectorUtil.normalizeVec3(right);
@@ -597,9 +530,6 @@ public class MainWindow implements GLEventListener, KeyListener, MouseListener{
         this.probeScaleT.glLoadIdentity();
         float r = (float)Double.longBitsToDouble(Surface.probeRadius.get());
         this.probeScaleT.glPushMatrix();
-        direction[0] = (float)Surface.centerOfgravity.getX();
-        direction[1] = (float)Surface.centerOfgravity.getY();
-        direction[2] = (float)Surface.centerOfgravity.getZ();
         camDir = new Quaternion(direction[0] ,direction[1], direction[2], 0.f);
         camDir.normalize();
         camTar = new Quaternion((float) Surface.centerOfgravity.getX() - cameraPos[0], (float) Surface.centerOfgravity.getY() - cameraPos[1], (float) Surface.centerOfgravity.getZ() - cameraPos[2], 0.f);
@@ -752,7 +682,6 @@ public class MainWindow implements GLEventListener, KeyListener, MouseListener{
         updateCamera();
     }
 
-    private boolean cameraMoving = false;
     private int cforward = 0;
     private int cright = 0;
 
@@ -795,7 +724,7 @@ public class MainWindow implements GLEventListener, KeyListener, MouseListener{
             if (convexPatchesFaceCount == 0 || concavePatchesFaceCount == 0 || toriPatchesFaceCount == 0){
                 return;
             }
-            gl.glUseProgram(selProgram);
+            gl.glUseProgram(selectProgram);
             if (!selectInitialized){
                 IntBuffer boffsets = GLBuffers.newDirectIntBuffer(convexPatchList.size() + concavePatchList.size() + Surface.rectangles.size());
                 int accumulator = 0;
@@ -826,7 +755,7 @@ public class MainWindow implements GLEventListener, KeyListener, MouseListener{
                 gl.glBindBuffer(GL4.GL_TEXTURE_BUFFER, 0);
                 selectInitialized = true;
             }
-            gl.glUseProgram(selProgram);
+            gl.glUseProgram(selectProgram);
             gl.glBindFramebuffer(GL.GL_FRAMEBUFFER, fbo[0]);
             gl.glEnable(GL.GL_DEPTH_TEST);
             gl.glClearColor(-1.f, -1.f, -1.f, -1.f);
@@ -838,9 +767,9 @@ public class MainWindow implements GLEventListener, KeyListener, MouseListener{
             gl.glUniform1i(uniVertexOffsets, 0);
 
 
-            int viewLoc = gl.glGetUniformLocation(selProgram, "viewMat");
-            int projLoc = gl.glGetUniformLocation(selProgram, "proj_matrix");
-            int modelLoc = gl.glGetUniformLocation(selProgram, "modelMat");
+            int viewLoc = gl.glGetUniformLocation(selectProgram, "viewMat");
+            int projLoc = gl.glGetUniformLocation(selectProgram, "proj_matrix");
+            int modelLoc = gl.glGetUniformLocation(selectProgram, "modelMat");
 
             gl.glUniformMatrix4fv(projLoc, 1, false, _projMat.glGetMatrixf());
             gl.glUniformMatrix4fv(viewLoc, 1, false, look.glGetMatrixf());
@@ -881,6 +810,7 @@ public class MainWindow implements GLEventListener, KeyListener, MouseListener{
     private void drawConvex(){
         gl.glUniform3fv(uniNormalColorLoc, 1, convexPatchCol, 0);
         gl.glUniform3fv(uniSelectedColorLoc, 1, selectedPatchCol, 0);
+        gl.glUniform1f(uniAmbientStrengthLoc, ambientStrength);
         if (convexMeshInitialized) {
             if (selectedExclusiveRender){
                 if (convexPatchesSelect.size() > 0) {
@@ -917,7 +847,6 @@ public class MainWindow implements GLEventListener, KeyListener, MouseListener{
                 gl.glUniform1i(uniSelectedMeshCountLoc, buffCap); //convexPatchesSelect.size());
                 gl.glUniform1iv(uniSelectedMeshStartLoc, buffCap, selectStart);
                 gl.glUniform1iv(uniSelectedMeshEndLoc, buffCap, selectEnd);
-                gl.glUniform1f(uniAmbientStrengthLoc, ambientStrength);
                 gl.glUniform3fv(uniNormalColorLoc, 1, convexPatchCol, 0);
                 gl.glBindVertexArray(meshVao[CONVEX]);
                 gl.glBindBuffer(GL4.GL_ELEMENT_ARRAY_BUFFER, meshEbo[CONVEX]);
@@ -927,7 +856,7 @@ public class MainWindow implements GLEventListener, KeyListener, MouseListener{
             }
         }
         if (renderLines) {
-            gl.glUniform1f(uniAmbientStrengthLoc, ambientStrength);
+            gl.glUniform1f(uniAmbientStrengthLoc, 1.f);
             gl.glBindVertexArray(lineVao[CONVEX]);
             gl.glBindBuffer(GL4.GL_ELEMENT_ARRAY_BUFFER, lineEbo[CONVEX]);
             if (selectedExclusiveRender){
@@ -947,7 +876,7 @@ public class MainWindow implements GLEventListener, KeyListener, MouseListener{
     private void drawConcave(){
         gl.glUniform3fv(uniNormalColorLoc, 1, concavePatchCol, 0);
         gl.glUniform3fv(uniSelectedColorLoc, 1, selectedPatchCol, 0);
-
+        gl.glUniform1f(uniAmbientStrengthLoc, ambientStrength);
         if (concaveMeshInitialized) {
             if (selectedExclusiveRender){
                 if (concavePatchesSelect.size() > 0) {
@@ -986,7 +915,6 @@ public class MainWindow implements GLEventListener, KeyListener, MouseListener{
                 selectEnd.rewind();
                 int  buffCap = concavePatchesSelect.size();
                 gl.glFrontFace(GL4.GL_CW);
-                gl.glUniform1f(uniAmbientStrengthLoc, ambientStrength);
                 gl.glUniform1i(uniSelectedMeshCountLoc, buffCap); //concavePatchesSelect.size());
                 gl.glUniform1iv(uniSelectedMeshStartLoc, buffCap, selectStart);
                 gl.glUniform1iv(uniSelectedMeshEndLoc, buffCap, selectEnd);
@@ -1001,7 +929,7 @@ public class MainWindow implements GLEventListener, KeyListener, MouseListener{
             }
         }
         if (renderLines) {
-            gl.glUniform1f(uniAmbientStrengthLoc, ambientStrength);
+            gl.glUniform1f(uniAmbientStrengthLoc, .5f);
             gl.glBindVertexArray(lineVao[CONCAVE]);
             gl.glBindBuffer(GL4.GL_ELEMENT_ARRAY_BUFFER, lineEbo[CONCAVE]);
             if (selectedExclusiveRender){
@@ -1238,7 +1166,6 @@ public class MainWindow implements GLEventListener, KeyListener, MouseListener{
         GLRunnable r = new GLRunnable() {
             @Override
             public boolean run(GLAutoDrawable glAutoDrawable) {
-                //pushToriMesh2GPU();
                 _pushToriMeshToGPU();
                 return true;
             }
@@ -1265,35 +1192,15 @@ public class MainWindow implements GLEventListener, KeyListener, MouseListener{
             concaveFaceCountShow = (concavePatchesSelect.size() > 0) ? Surface.triangles.get(concavePatchesSelect.get(0)).faces.length / 3: 0;
             convexFaceCountShow = (convexPatchesSelect.size() > 0) ? Surface.convexPatches.get(convexPatchesSelect.get(0)).faces.length / 3 : 0;
         }
-        if (keyEvent.getKeyCode() == KeyEvent.VK_F5){
-            if (concavePatchesSelect.size() > 0) {
-                SurfaceParser.exportCP(Surface.triangles.get(concavePatchesSelect.get(0)), "/home/radoslav/objs/cp" + concavePatchesSelect.get(0).toString() + "_" + (int) (Math.random() * 100) + ".obj");
-            }
-            if (convexPatchesSelect.size() > 0) {
-                SurfaceParser.exportCP(Surface.convexPatches.get(convexPatchesSelect.get(0)), "/home/radoslav/objs/cvp" + convexPatchesSelect.get(0).toString() + "_" + (int) (Math.random() * 100) + ".obj");
-            }
-        }
-
-        if (keyEvent.getKeyChar() == 'h'){
-            SphericalPatch sp = Surface.convexPatches.get(convexPatchesSelect.get(0));
-            SurfaceParser.exportPatch(sp);
-            SurfaceParser.exportCP(sp, "/home/radoslav/objs/cp_" + sp.id + ".obj");
-        }
-
-        if (keyEvent.getKeyChar() == 'i'){
-            SphericalPatch sp = Surface.triangles.get(concavePatchesSelect.get(0));
-            SurfaceParser.exportPatch(sp);
-            SurfaceParser.exportCP(sp, "/home/radoslav/objs/concp_" + sp.id + ".obj");
-        }
 
         if (keyEvent.getKeyChar() == '\\'){
             stopRendering.set(!stopRendering.get());
         }
-        if (keyEvent.getKeyChar() == 'g'){
-            convexMeshInitialized = !convexMeshInitialized;
-            concaveMeshInitialized = !concaveMeshInitialized;
-            toriMeshInitialized = !toriMeshInitialized;
-        }
+        //if (keyEvent.getKeyChar() == 'g'){
+        //    convexMeshInitialized = !convexMeshInitialized;
+        //    concaveMeshInitialized = !concaveMeshInitialized;
+        //    toriMeshInitialized = !toriMeshInitialized;
+        //}
 
         if (keyEvent.getKeyCode() == KeyEvent.VK_F9){
             convexMeshInitialized = !convexMeshInitialized;
@@ -1345,17 +1252,14 @@ public class MainWindow implements GLEventListener, KeyListener, MouseListener{
             }
         }
 
-        if (keyEvent.getKeyChar() == 'n'){
+        if (keyEvent.getKeyCode() == KeyEvent.VK_N){
             focusCameraOnTarget();
         }
 
-        if (keyEvent.getKeyChar() == 'x'){
+        if (keyEvent.getKeyCode() == KeyEvent.VK_X){
             selectedExclusiveRender = !selectedExclusiveRender;
         }
 
-        if (keyEvent.getKeyChar() == 'z'){
-            onlyCircular = !onlyCircular;
-        }
         if (convexPatchList != null) {
             if (strSelectedAtom.length() > 0) {
                 window.setTitle("Selected atom: " + selectedAtom.get() + " / " + convexPatchList.size() + " Atom to select: " + strSelectedAtom + " Press Enter to confirm");
@@ -1369,50 +1273,30 @@ public class MainWindow implements GLEventListener, KeyListener, MouseListener{
             window.confinePointer(captureMouse);
             window.setPointerVisible(!captureMouse);
             window.warpPointer(window.getWidth() / 2, window.getHeight() / 2);
-            dontConsider = true;
         }
-        if (keyEvent.getKeyChar() == 'w'){
+        if (keyEvent.getKeyCode() == KeyEvent.VK_W){
             cforward = 1;
         }
-        if (keyEvent.getKeyChar() == 's'){
+        if (keyEvent.getKeyCode() == KeyEvent.VK_S){
             cforward = -1;
         }
-        if (keyEvent.getKeyChar() == 'a'){
+        if (keyEvent.getKeyCode() == KeyEvent.VK_A){
             cright = -1;
         }
-        if (keyEvent.getKeyChar() == 'd'){
+        if (keyEvent.getKeyCode() == KeyEvent.VK_D){
             cright = 1;
         }
 
-        if (keyEvent.getKeyChar() == 'c'){
-            lightPosition[0] = cameraPos[0];
-            lightPosition[1] = cameraPos[1];
-            lightPosition[2] = cameraPos[2];
-        }
-
-        if (keyEvent.getKeyChar() == 'k'){
+        if (keyEvent.getKeyCode() == KeyEvent.VK_K){
             cullFaces = !cullFaces;
         }
 
-        if (keyEvent.getKeyCode() == KeyEvent.VK_UP){
-            modelY += 0.1f;
-        }
-        if (keyEvent.getKeyCode() == KeyEvent.VK_DOWN){
-            modelY -= 0.1f;
-        }
-        if (keyEvent.getKeyCode() == KeyEvent.VK_LEFT){
-            modelX -= 0.1f;
-        }
-        if (keyEvent.getKeyCode() == KeyEvent.VK_RIGHT){
-            modelX += 0.1f;
-        }
-
-        if (keyEvent.getKeyChar() == 'f'){
+        if (keyEvent.getKeyCode() == KeyEvent.VK_F){
             drawFaces = !drawFaces;
             drawModeUpdate = true;
         }
 
-        if (keyEvent.getKeyChar() == 'l'){
+        if (keyEvent.getKeyCode() == KeyEvent.VK_L){
             renderLines = !renderLines;
         }
 
@@ -1420,9 +1304,6 @@ public class MainWindow implements GLEventListener, KeyListener, MouseListener{
             renderCPs = !renderCPs;
         }
 
-        if (keyEvent.getKeyChar() == 'o'){
-            step =  !step;
-        }
         if (keyEvent.getKeyCode() == KeyEvent.VK_SHIFT){
             if (zooming){
                 viewPanning = true;
@@ -1433,7 +1314,7 @@ public class MainWindow implements GLEventListener, KeyListener, MouseListener{
         if (keyEvent.getKeyCode() == KeyEvent.VK_CONTROL){
             removeSelection = true;
         }
-        if (keyEvent.getKeyChar() == 'm'){
+        if (keyEvent.getKeyCode() == KeyEvent.VK_M){
             mouseSelect = !mouseSelect;
             if (!mouseSelect){
                 hoverAtom = -1;
@@ -1482,10 +1363,10 @@ public class MainWindow implements GLEventListener, KeyListener, MouseListener{
         if (keyEvent.isAutoRepeat()){
             return;
         }
-        if (keyEvent.getKeyChar() == 'w' || keyEvent.getKeyChar() == 's'){
+        if (keyEvent.getKeyCode() ==  KeyEvent.VK_W || keyEvent.getKeyCode() == KeyEvent.VK_S){
             cforward = 0;
         }
-        if (keyEvent.getKeyChar() == 'a' || keyEvent.getKeyChar() == 'd'){
+        if (keyEvent.getKeyCode() == KeyEvent.VK_A || keyEvent.getKeyCode() == KeyEvent.VK_D){
             cright = 0;
         }
         if (keyEvent.getKeyCode() == KeyEvent.VK_SHIFT){
@@ -1615,10 +1496,6 @@ public class MainWindow implements GLEventListener, KeyListener, MouseListener{
             window.warpPointer(window.getWidth() / 2, window.getHeight() / 2);
             rotating = false;
         }
-        if (rotating){
-            lastX = mouseEvent.getX();
-            lastY = mouseEvent.getY();
-        }
     }
 
     @Override
@@ -1643,8 +1520,6 @@ public class MainWindow implements GLEventListener, KeyListener, MouseListener{
 
     @Override
     public void mouseMoved(MouseEvent mouseEvent) {
-        lastX = mouseEvent.getX();
-        lastY = mouseEvent.getY();
         if (captureMouse) {
             mouseAngleX = mouseSpeed * deltaTime * (window.getWidth() / 2.f - mouseEvent.getX());
             mouseAngleY = mouseSpeed * deltaTime * (window.getHeight() / 2.f - mouseEvent.getY());
@@ -1682,7 +1557,6 @@ public class MainWindow implements GLEventListener, KeyListener, MouseListener{
             moved = true;
         }
     }
-
     @Override
     public void mouseDragged(MouseEvent mouseEvent) {
         if (zooming){
@@ -1709,23 +1583,6 @@ public class MainWindow implements GLEventListener, KeyListener, MouseListener{
             cameraPos[1] -= zoomSpeed * (-right[1] * diffx + up[1] * diffy);
             cameraPos[2] -= zoomSpeed * (-right[2] * diffx + up[2] * diffy);
             window.warpPointer(window.getWidth() / 2, window.getHeight() / 2);
-        }
-        if (rotating){
-            int diffx = mouseEvent.getX() - lastX;
-            int diffy = mouseEvent.getY() - lastY;
-            angleX += 0.01 * diffx;
-            angleY += 0.01 * diffy;
-            modelMAT.glLoadIdentity();
-            modelMAT.glTranslatef((float) Surface.centerOfgravity.x, (float) Surface.centerOfgravity.y, (float) Surface.centerOfgravity.z);
-            Quaternion q1 = new Quaternion(0, 0, 0, 0);
-            q1.setFromAngleNormalAxis((float)angleX, up);
-            Quaternion q2 = new Quaternion(0, 0, 0, 0);
-            q2.setFromAngleNormalAxis((float)angleY, right);
-            modelMAT.glRotate(q1);
-            modelMAT.glRotate(q2);
-            modelMAT.glTranslatef((float)-Surface.centerOfgravity.x, (float)-Surface.centerOfgravity.y, (float)-Surface.centerOfgravity.z);
-            lastX = mouseEvent.getX();
-            lastY = mouseEvent.getY();
         }
     }
 

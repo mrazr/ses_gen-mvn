@@ -12,15 +12,10 @@ public class Point {
     public double x;
     public double y;
     public double z;
-    //public int afmSelect = -1;
     public int afmIdx = -1;
-    //public boolean isShared = false;
     public int idx = -1;
-    //public boolean common = true;
     public int ownIdx = -1;
     public int _id = -1;
-    //public static double scaleFactor = 5;
-    //public boolean arcPoint = false;
     public Arc arc;
 
     public double getX() {

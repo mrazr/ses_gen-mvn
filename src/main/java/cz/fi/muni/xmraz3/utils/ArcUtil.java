@@ -182,6 +182,7 @@ public class ArcUtil {
         a.midProbe = midProbe;
         return arc;
     }
+
     public static void linkArcs(SphericalPatch sp) {
         try {
             queue.clear();
@@ -449,6 +450,7 @@ public class ArcUtil {
         }
         return null;
     }
+
     public static Point findClosestPointOnCircle(List<Point> points, Point start, boolean includeStart, Point center, Vector normal, boolean next){
         double angle = 2 * Math.PI;
         Point closest = null;

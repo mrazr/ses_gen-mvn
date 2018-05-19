@@ -161,8 +161,6 @@ public class SurfaceParser {
                 Sphere probeMid = new Sphere(new Point(jProbeMid), SesConfig.probeRadius);
 
                 constructConvexPatchArcs(atom1, atom2, probe1, probe2, probeMid);
-
-                rollingCount += 2;
             }
         } catch (ParseException e){
 		e.printStackTrace();
@@ -503,11 +501,6 @@ public class SurfaceParser {
     //main method of this class, calls all of the methods used to parse, construct surface...
     public static long parseConstructTime = 0;
     public static void ses_start(String folder) {
-        //try {
-        //    System.in.read();
-        //} catch (Exception e){
-        //    e.printStackTrace();
-        //}
         if (SesConfig.useGUI){
             MainPanelController.setBtnRemeshPossible(false);
         }
@@ -638,8 +631,6 @@ public class SurfaceParser {
             }
         }
     }
-
-    private static int rollingCount = 0;
 
     //main export methods
 

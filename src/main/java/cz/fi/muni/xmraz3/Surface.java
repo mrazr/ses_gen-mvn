@@ -29,11 +29,9 @@ public class Surface {
     public static List<Arc> intersectingArcs = new ArrayList<>();
     public static List<Point> commonVrts = new ArrayList<>();
     public static List<Vector> normals = new ArrayList<>();
-    public static float stlXOffset = 10000.f;
     public static int numoftriangles = 0;
     public static KDTree<SphericalPatch> probeTree;
     public static Point centerOfgravity = new Point(0., 0., 0.);
     public static double scaleFactor = 1.;
-    public static int trimmedTriangles = 0;
     public static int toriFacesCount = 0;
 }

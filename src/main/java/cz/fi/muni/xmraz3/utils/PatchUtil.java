@@ -27,7 +27,6 @@ public class PatchUtil {
     private static List<Boundary> newBS = new ArrayList<>();
     private static List<Boundary> toRemove = new ArrayList<>();
     private static List<Boundary> toRemove2 = new ArrayList<>();
-    private static Map<Integer, List<Plane>> planes = new TreeMap<>();
     private static List<Plane> planePool = new ArrayList<>(50);
     private static boolean planePoolInitialized = false;
     private static int nextPlaneID = 0;
@@ -63,12 +62,16 @@ public class PatchUtil {
     private static Quaternion _genQuaternion = new Quaternion();
     private static float[] _floatVector = new float[3];
 
-    public static double getProbeAxisDistance(Point probe, Point a1, Point a2){
-        v1.changeVector(a2, a1).makeUnit(); //axis vector
-        v2.changeVector(probe, a1); //vector to probe
-        v1.multiply(v2.dotProduct(v1));
-        return v3.assignAddition(v2, v1.multiply(-1)).sqrtMagnitude();
+    /*
+    Method that treats a self-intersection of a given toroidal patch - trims its two spherical triangles against each other
+    and assigns the toroidal patch with two CuspTriangle-s that are used later in the meshing phase to generate to two partial patches
+     */
+    public static void processSelfIntersectingTori(){
+        for (ToroidalPatch tp : Surface.selfIntersectingRects){
+            PatchUtil.torProcessSelfIntersection(tp);
+        }
     }
+
     public static void torProcessSelfIntersection(ToroidalPatch tp){
         try {
             if (!tp.circular) {
@@ -132,9 +135,6 @@ public class PatchUtil {
                     }
                 }
                 tr1.left = target;
-                if (tr1.left == null){
-                    System.out.println(" ");
-                }
                 tr1.cuspPoint = tr1.left.end1;
                 target = null;
                 for (int i = 0; i < right.boundaries.size(); ++i){
@@ -346,6 +346,275 @@ public class PatchUtil {
             e.printStackTrace();
         }
     }
+    /*
+    After the treatment of self-intersecting toroidal patches, some spherical triangles might have arcs that intersect other arcs-
+    they trimmed here.
+     */
+    public static void processSelfIntersectingConcavePatches() {
+        for (Arc cpl : Surface.intersectingArcs) {
+            PatchUtil.trimSelfIntersectingPatch(cpl);
+        }
+    }
+
+    public static void trimSelfIntersectingPatch(Arc arc){
+        try {
+            if (!arc.valid || !arc.intersecting){
+                return;
+            }
+            SphericalPatch sp = arc.owner;
+            intersectionPoints.clear();
+            exclude.clear();
+            exclude.add(arc);
+            invalid.clear();
+            findIntersectionPoints(sp, arc.center, arc.radius, intersectionPoints, exclude);
+            for (int i = 0; i < intersectionPoints.size(); ++i){
+                Point v = intersectionPoints.get(i);
+                if (Point.distance(v, arc.prev.end1) < 0.0015 || Point.distance(v, arc.next.end2) < 0.0015){
+                    invalid.add(v);
+                }
+            }
+            intersectionPoints.removeAll(invalid);
+            if (intersectionPoints.size() > 1){ //theoretically at most 2 intersection points should be encountered(and in most cases), 1 point is special case which is not handled right now(it is rare)
+                for (int i = 0; i < sp.boundaries.size(); ++i){
+                    Boundary b = sp.boundaries.get(i);
+                    for (int j = 0; j < b.arcs.size(); ++j){
+                        Arc a = b.arcs.get(j);
+                        a.valid = false;
+                    }
+                }
+                Plane circle = rho;// new Plane(arc.center, arc.normal);
+                rho.redefine(arc.center, arc.normal);
+                newBS.clear();
+                Point first = ArcUtil.findClosestPointOnCircle(intersectionPoints, arc.end1, true, arc.center, arc.normal, true);
+                intersectionPoints.remove(first);
+                Arc a = first.arc;//ArcUtil.findContainingArc(first, circle, sp, arc);
+                if (Point.distance(a.end1, first) < 0.001 && nextSign(first, a, circle) < 0.0){
+                    a = a.prev;
+                } else if (Point.distance(a.end2, first) < 0.001 && nextSign(first, a, circle) > 0.0){
+                    a = a.next;
+                }
+                if (a == null){
+                    int c = 4;
+                }
+                Boundary b = new Boundary();
+                Arc newA = (Point.distance(first, arc.end1) < 0.003) ? null : new Arc(arc.center, arc.radius);
+                if (newA != null) {
+                    newA.vrts.add(arc.end1);
+                    newA.vrts.add(first);
+                    newA.setEndPoints(arc.end1, first, false);
+                    newA.setNormal(arc.normal);
+                    if (arc.cuspTriangle != null){
+                        int subdLevel = ArcUtil.getSubdivisionLevel(arc);
+                        newA.cuspTriangle = arc.cuspTriangle;
+                        if (newA.cuspTriangle.left == arc){
+                            newA.cuspTriangle.left = newA;
+                        } else {
+                            newA.cuspTriangle.right = newA;
+                        }
+                        ArcUtil.refineArc(newA, 0, true, subdLevel, false);
+                    } else {
+                        ArcUtil.refineArc(newA, Surface.maxEdgeLen, false, 0, false);
+                    }
+                    if (arc.torus != null){
+                        if (arc.torus.tr1 != null){
+                            if (arc == arc.torus.tr1.left){
+                                arc.torus.tr1.left = newA;
+                            } else if (arc == arc.torus.tr1.right){
+                                arc.torus.tr1.right = newA;
+                            } else if (arc == arc.torus.tr2.left){
+                                arc.torus.tr2.left = newA;
+                            } else if (arc == arc.torus.tr2.right){
+                                arc.torus.tr2.right = newA;
+                            }
+                        } else {
+                            if (arc.torus.concavePatchArcs.get(0) == arc){
+                                arc.torus.concavePatchArcs.remove(arc);
+                                arc.torus.concavePatchArcs.add(newA);
+                            } else {
+                                arc.torus.concavePatchArcs.remove(arc);
+                                arc.torus.concavePatchArcs.add(newA);
+                            }
+                        }
+                        newA.torus = arc.torus;
+                    }
+                } else {
+                    first = arc.end1;
+                }
+                Arc newA2 = new Arc(a.center, a.radius);
+                newA2.vrts.add(first);
+                newA2.vrts.add(a.end2);
+                newA2.setEndPoints(first, a.end2, false);
+                newA2.setNormal(a.normal);
+                if (a.cuspTriangle != null){
+                    int subdLevel = ArcUtil.getSubdivisionLevel(a);
+                    newA2.cuspTriangle = a.cuspTriangle;
+                    if (a.cuspTriangle.left == a){
+                        newA2.cuspTriangle.left = newA2;
+                    } else {
+                        newA2.cuspTriangle.right = newA2;
+                    }
+                    ArcUtil.refineArc(newA2, 0, true, subdLevel, false);
+                } else {
+                    ArcUtil.refineArc(newA2, Surface.maxEdgeLen, false, 0, false);
+                }
+                if (a.torus != null){
+                    if (a.torus.tr1 != null){
+                        if (a == a.torus.tr1.left){
+                            a.torus.tr1.left = newA2;
+                        } else if (a == a.torus.tr1.right){
+                            a.torus.tr1.right = newA2;
+                        } else if (a == a.torus.tr2.left){
+                            a.torus.tr2.left = newA2;
+                        } else if (a == a.torus.tr2.right){
+                            a.torus.tr2.right = newA2;
+                        }
+                    } else {
+                        if (a.torus.concavePatchArcs.get(0) == a){
+                            a.torus.concavePatchArcs.remove(a);
+                            a.torus.concavePatchArcs.add(newA2);
+                        } else {
+                            a.torus.concavePatchArcs.remove(a);
+                            a.torus.concavePatchArcs.add(newA2);
+                        }
+                    }
+                    newA2.torus = a.torus;
+                }
+                if (newA != null) {
+                    b.arcs.add(newA);
+                }
+                b.arcs.add(newA2);
+                Arc start = arc;
+                Arc a_ = a.next;
+                while (a_ != start) {
+                    b.arcs.add(a_);
+                    if (a_ == null){
+                        System.out.println(" ");
+                    }
+                    if (a_.next == null){
+                        System.out.println(" ");
+                    }
+                    a_ = a_.next;
+                }
+
+                b.patch = sp;
+                ArcUtil.buildEdges(b, true);
+
+                newBS.add(b);
+
+                Point second = intersectionPoints.get(0); //remaining intersection point
+                a = second.arc;//ArcUtil.findContainingArc(second, circle, sp, arc);
+                if (Point.distance(second, a.end1) < 0.001 && nextSign(second, a, circle) < 0.0){
+                    a = a.prev;
+                } else if (Point.distance(second, a.end2) < 0.001 && nextSign(second, a, circle) > 0.0){
+                    a = a.next;
+                }
+                b = new Boundary();
+                newA = new Arc(a.center, a.radius);
+                newA.vrts.add(a.end1);
+                newA.vrts.add(second);
+                newA.setEndPoints(a.end1, second, false);
+                newA.setNormal(a.normal);
+                if (a.cuspTriangle != null){
+                    int subdLevel = ArcUtil.getSubdivisionLevel(a);
+                    newA.cuspTriangle = a.cuspTriangle;
+                    if (a.cuspTriangle.left == a){
+                        newA.cuspTriangle.left = newA;
+                    } else {
+                        newA.cuspTriangle.right = newA;
+                    }
+                    ArcUtil.refineArc(newA, 0, true, subdLevel, false);
+                } else {
+                    ArcUtil.refineArc(newA, Surface.maxEdgeLen, false, 0, false);
+                }
+
+                if (a.torus != null){
+                    if (a.torus.tr1 != null){
+                        if (a == a.torus.tr1.left){
+                            a.torus.tr1.left = newA;
+                        } else if (a == a.torus.tr1.right){
+                            a.torus.tr1.right = newA;
+                        } else if (a == a.torus.tr2.left){
+                            a.torus.tr2.left = newA;
+                        } else if (a == a.torus.tr2.right){
+                            a.torus.tr2.right = newA;
+                        }
+                    } else {
+                        if (a.torus.concavePatchArcs.get(0) == a){
+                            a.torus.concavePatchArcs.remove(a);
+                            a.torus.concavePatchArcs.add(newA);
+                        } else {
+                            a.torus.concavePatchArcs.remove(a);
+                            a.torus.concavePatchArcs.add(newA);
+                        }
+                    }
+                    newA.torus = a.torus;
+                }
+                newA2 = (Point.distance(second, arc.end2) < 0.003) ? null : new Arc(arc.center, arc.radius);
+                if (newA2 != null) {
+                    newA2.vrts.add(second);
+                    newA2.vrts.add(arc.end2);
+                    newA2.setEndPoints(second, arc.end2, false);
+                    newA2.setNormal(arc.normal);
+                    if (arc.cuspTriangle != null){
+                        int subdLevel = ArcUtil.getSubdivisionLevel(arc);
+                        newA2.cuspTriangle = arc.cuspTriangle;
+                        if (arc.cuspTriangle.left == arc){
+                            newA2.cuspTriangle.left = newA2;
+                        } else {
+                            newA2.cuspTriangle.right = newA2;
+                        }
+                        ArcUtil.refineArc(newA2, 0, true, subdLevel, false);
+                    } else {
+                        ArcUtil.refineArc(newA2, Surface.maxEdgeLen, false, 0, false);
+                    }
+                    if (arc.torus != null){
+                        if (arc.torus.tr1 != null){
+                            if (arc == arc.torus.tr1.left){
+                                arc.torus.tr1.left = newA2;
+                            } else if (arc == arc.torus.tr1.right){
+                                arc.torus.tr1.right = newA2;
+                            } else if (arc == arc.torus.tr2.left){
+                                arc.torus.tr2.left = newA2;
+                            } else if (arc == arc.torus.tr2.right){
+                                arc.torus.tr2.right = newA2;
+                            }
+                        } else {
+                            if (arc.torus.concavePatchArcs.get(0) == arc){
+                                arc.torus.concavePatchArcs.remove(arc);
+                                arc.torus.concavePatchArcs.add(newA2);
+                            } else {
+                                arc.torus.concavePatchArcs.remove(arc);
+                                arc.torus.concavePatchArcs.add(newA2);
+                            }
+                        }
+                        newA2.torus = arc.torus;
+                    }
+                } else {
+                    second = arc.end2;
+                    newA.end2 = second;
+                    newA.vrts.remove(newA.vrts.size() - 1);
+                    newA.vrts.add(second);
+                }
+                start = a;
+                a_ = arc.next;
+                b.arcs.add(newA);
+                if (newA2 != null) {
+                    b.arcs.add(newA2);
+                }
+                while (a_ != start) {
+                    b.arcs.add(a_);
+                    a_ = a_.next;
+                }
+                b.patch = sp;
+                ArcUtil.buildEdges(b, true);
+                newBS.add(b);
+                sp.boundaries.clear();
+                sp.boundaries.addAll(newBS);
+            }
+        } catch (Exception e){
+            e.printStackTrace();
+        }
+    }
 
     public static void processIntersectingArcsOnPatch(Arc arc){
         if (!arc.intersecting || !arc.valid){
@@ -541,47 +810,198 @@ public class PatchUtil {
         lastPoI = null;
     }
 
-    public static double computeIntersectionCircle(Point probe1, Point probe2, Point result, double probeRadius){
-        v1.changeVector(probe1, probe2).multiply(0.5f);
-        point.assignTranslation(probe2, v1);
-        result.x = point.x;
-        result.y = point.y;
-        result.z = point.z;
-        return Math.sqrt(Math.pow(probeRadius, 2) - Math.pow(v1.sqrtMagnitude(), 2));
-    }
-
-    public static Point computeCusp(Point probe, Sphere a1, Sphere a2){
-        v1.changeVector(a2.center, a1.center).makeUnit(); //axis
-        v2.changeVector(probe, a1.center).makeUnit(); //a1toprobe
-        double atomToProbeLength = a1.radius + SesConfig.probeRadius;
-        v2.makeUnit();
-        double alpha = Math.acos(v1.dotProduct(v2));
-        double beta = Math.asin(((atomToProbeLength) * Math.sin(alpha)) / SesConfig.probeRadius);
-        double gama = Math.PI - alpha - beta;
-        double atomToCusp = (SesConfig.probeRadius * Math.sin(gama)) / Math.sin(alpha);
-        v1.multiply(atomToCusp);
-        return Point.translatePoint(a1.center, v1);
-    }
-
     public static void processIntersectingConcavePatches(){
         for (SphericalPatch sp : Surface.triangles){
             trimConcavePatch(sp);
         }
-        planes.clear();
     }
 
-    public static void processSelfIntersectingTori(){
-        for (ToroidalPatch tp : Surface.selfIntersectingRects){
-            PatchUtil.torProcessSelfIntersection(tp);
+    private static void trimConcavePatch(SphericalPatch sp){
+        if (!planePoolInitialized){
+            for (int i = 0; i < 50; ++i){
+                planePool.add(i, new Plane(new Point(0, 0, 0), new Vector(0, 0, 0)));
+            }
+            planePoolInitialized = true;
+        }
+        if (vrtsPool.size() == 0){
+            for (int i = 0; i < 17; ++i){
+                vrtsPool.add(new Point(0, 0, 0));
+            }
+            _b.arcs.add(_a1);
+            _b.arcs.add(_a2);
+        }
+        try {
+            neighbors.clear();
+            Surface.probeTree.range(sp.sphere.center.getData(), 2 * SesConfig.probeRadius, neighbors); //causes slf4j warning
+            Collections.sort(neighbors, new Comparator<Neighbor<double[], SphericalPatch>>() {
+                @Override
+                public int compare(Neighbor<double[], SphericalPatch> o1, Neighbor<double[], SphericalPatch> o2) {
+                    if (Math.abs(o1.distance - o2.distance) < 0.001) {
+                        return 0;
+                    }
+                    return (o1.distance - o2.distance > 0.0) ? -1 : 1;
+                }
+            });
+
+            nextPlaneID = 0;
+            for (int i = 0; i < sp.boundaries.size(); ++i){
+                Boundary b = sp.boundaries.get(i);
+                for (int j = 0; j < b.arcs.size(); ++j){
+                    Arc a = b.arcs.get(j);
+                    if (nextPlaneID >= planePool.size()){
+                        planePool.add(new Plane(new Point(0, 0, 0), new Vector(0, 0, 0)));
+                    }
+                    Plane p = planePool.get(nextPlaneID);
+                    p.redefine(a.center, a.normal);
+                    nextPlaneID++;
+                }
+            }
+            currIter = 0;
+            curr = sp;
+            for (int i = 0; i < neighbors.size(); ++i) {
+                Neighbor<double[], SphericalPatch> n = neighbors.get(i);
+                if (n.value == sp) {
+                    continue;
+                }
+                SphericalPatch sp2 = n.value;
+                if (sp.intersectingPatches.contains(sp2.id)) {
+                    continue;
+                }
+                if (nextPlaneID >= planePool.size()){
+                    planePool.add(new Plane(new Point(0, 0, 0), new Vector(0, 0, 0)));
+                }
+                Plane intersectingPlane = planePool.get(nextPlaneID);
+                Point center = intersectingPlane.p;
+                double radius = computeIntersectionCircle(sp.sphere.center, sp2.sphere.center, center, SesConfig.probeRadius);
+                intersectingPlane.v.changeVector(sp.sphere.center, center).makeUnit();
+                intersectingPlane.redefine(intersectingPlane.p, intersectingPlane.v);
+
+                if (Point.distance(sp.sphere.center, sp2.sphere.center) < 0.008){
+                    continue;
+                }
+                intersectionPoints.clear();
+                exclude.clear();
+                findIntersectionPoints(sp, center, radius, intersectionPoints, exclude);
+
+                currInt = intersectionPoints;
+                currCirc = intersectingPlane;
+                currRad = radius;
+                toRemove.clear();
+                if (intersectionPoints.size() > 1) {
+                    if (!pointsLieOnPatch(sp2, intersectionPoints) && sp.patchNormal.dotProduct(sp2.patchNormal) > 0.8){
+                        continue;
+                    }
+                    boolean identicalIntersector = false;
+                    for (int j = 0; j < nextPlaneID; ++j){
+                        if (planePool.get(j).isIdenticalWith(intersectingPlane)){
+                            identicalIntersector = true;
+                            break;
+                        }
+                    }
+                    if (!identicalIntersector){
+                        nextPlaneID++;
+                    }
+                    if (!identicalIntersector){//p!identicalIntersector){//lanes.get(sp.id).stream().noneMatch(plane -> plane.isIdenticalWith(p))) {
+                        sp.intersectingPatches.add(sp2.id);
+
+                        generateNewBoundaries(sp, intersectionPoints, intersectingPlane, radius, sp2.id,false);
+                        currIter++;
+                    }
+                } else if (intersectionPoints.size() == 0) {
+                    ArcUtil.redefineBoundary(_b, intersectingPlane, radius, vrtsPool, 45);
+                    ArcUtil.buildEdges(_b, true);
+                    boolean nest = false;
+                    removeFromSP.clear();
+                    processed.clear();
+                    Boundary _newB = null;
+                    for (int j = 0; j < sp.boundaries.size(); ++j){
+                        Boundary b = sp.boundaries.get(j);
+                        if (removeFromSP.contains(b) || processed.contains(b)){
+                            continue;
+                        }
+                        boolean isInside = true;
+                        for (int k = 0; k < b.arcs.size(); ++k){
+                            Arc a = b.arcs.get(k);
+                            rho.redefine(a.center, a.normal);
+                            for (int l = 0; l < _b.vrts.size(); ++l){
+                                if (!(rho.checkPointLocation(_b.vrts.get(l)) > 0.0)){
+                                    isInside = false;
+                                    break;
+                                }
+                            }
+                        }
+                        if (isInside){
+                            for (int k = 0; k < b.nestedBoundaries.size(); ++k){
+                                Boundary nb = b.nestedBoundaries.get(k);
+                                for (int l = 0; l < nb.arcs.size(); ++l){
+                                    Arc a = nb.arcs.get(l);
+                                    rho.redefine(a.center, a.normal);
+                                    for (int m = 0; m < _b.vrts.size(); ++m){
+                                        if (!(rho.checkPointLocation(_b.vrts.get(m)) > 0.0)){
+                                            isInside = false;
+                                            break;
+                                        }
+                                    }
+                                }
+                            }
+                            if (isInside) {
+                                _newB = new Boundary();
+                                Point _center = new Point(_b.arcs.get(0).center);
+                                Arc _a1 = ArcUtil.cloneArc(_b.arcs.get(0));
+                                _a1.center = _center;
+                                Arc _a2 = new Arc(_a1.center, _a1.radius);
+                                _a2.setEndPoints(_a1.end2, _a1.end1, false);
+                                _a2.setNormal(_a1.normal);
+                                _a2.vrts.add(_a2.end1);
+                                for (int k = 1; k < _b.arcs.get(1).vrts.size() - 1; ++k){
+                                    _a2.vrts.add(new Point(_b.arcs.get(1).vrts.get(k)));
+                                }
+                                _a2.vrts.add(_a2.end2);
+                                _newB.arcs.add(_a1);
+                                _newB.arcs.add(_a2);
+                                ArcUtil.buildEdges(_newB, true);
+                                _newB.nestedBoundaries.add(b);
+                                _newB.nestedBoundaries.addAll(b.nestedBoundaries);
+                                for (int k = 0; k < _newB.nestedBoundaries.size(); ++k) {
+                                    Boundary nb = _newB.nestedBoundaries.get(k);
+                                    nb.nestedBoundaries.add(_newB);
+                                }
+                                toRemove.clear();
+                                for (int k = 0; k < _newB.nestedBoundaries.size(); ++k){
+                                    Boundary nb = _newB.nestedBoundaries.get(k);
+                                    for (int l = 0; l < nb.arcs.size(); ++l){
+                                        Arc a = nb.arcs.get(l);
+                                        for (int m = 0; m < a.vrts.size(); ++m){
+                                            if (!(intersectingPlane.checkPointLocation(a.vrts.get(m)) > 0.0)){
+                                                toRemove.add(nb);
+                                                break;
+                                            }
+                                        }
+                                    }
+                                }
+                                _newB.nestedBoundaries.removeAll(toRemove);
+                                removeFromSP.addAll(toRemove);
+                                for (int k = 0; k < _newB.nestedBoundaries.size(); ++k){
+                                    Boundary nb = _newB.nestedBoundaries.get(k);
+                                    nb.nestedBoundaries.removeAll(toRemove);
+                                }
+                                processed.addAll(_newB.nestedBoundaries);
+                                nest = true;
+                            }
+                        }
+                    }
+                    if (nest){
+                        _newB.patch = sp;
+                        sp.boundaries.removeAll(removeFromSP);
+                        sp.boundaries.add(_newB);
+                    }
+
+                }
+            }
+        } catch (Exception e){
+            e.printStackTrace();
         }
     }
-
-    public static void processSelfIntersectingConcavePatches() {
-        for (Arc cpl : Surface.intersectingArcs) {
-            PatchUtil.trimSelfIntersectingPatch(cpl);
-        }
-    }
-
 
     private static void trimBoundary(Plane circle, double radius, Point in1, Arc a1, Point in2, Arc a2, List<Point> intersectionPoints, List<Point> usedPoints, List<Boundary> toRemove, List<Boundary> newBS, SphericalPatch sp, int otherPatch){
         Point pStart = in1;
@@ -932,203 +1352,6 @@ public class PatchUtil {
         }
     }
 
-
-
-    private static void exp(){
-        SurfaceParser.exportCP(curr, "/home/radoslav/objs/cp_" + curr.id + "_" + currIter + ".obj");
-        SurfaceParser.exportCircle(currCirc, currRad, currInt.get(0), "/home/radoslav/objs/cir_" + curr.id + "_" + currIter + ".obj");
-        SurfaceParser.exportPoints(currInt, currCirc.v, "/home/radoslav/objs/poi_" + curr.id + "_" + currIter + ".obj");
-    }
-
-
-
-    private static void trimConcavePatch(SphericalPatch sp){
-        if (!planePoolInitialized){
-            for (int i = 0; i < 50; ++i){
-                planePool.add(i, new Plane(new Point(0, 0, 0), new Vector(0, 0, 0)));
-            }
-            planePoolInitialized = true;
-        }
-        if (vrtsPool.size() == 0){
-            for (int i = 0; i < 17; ++i){
-                vrtsPool.add(new Point(0, 0, 0));
-            }
-            _b.arcs.add(_a1);
-            _b.arcs.add(_a2);
-        }
-        try {
-            neighbors.clear();
-            Surface.probeTree.range(sp.sphere.center.getData(), 2 * SesConfig.probeRadius, neighbors); //causes slf4j warning
-            Collections.sort(neighbors, new Comparator<Neighbor<double[], SphericalPatch>>() {
-                @Override
-                public int compare(Neighbor<double[], SphericalPatch> o1, Neighbor<double[], SphericalPatch> o2) {
-                    if (Math.abs(o1.distance - o2.distance) < 0.001) {
-                        return 0;
-                    }
-                    return (o1.distance - o2.distance > 0.0) ? -1 : 1;
-                }
-            });
-
-            nextPlaneID = 0;
-            for (int i = 0; i < sp.boundaries.size(); ++i){
-                Boundary b = sp.boundaries.get(i);
-                for (int j = 0; j < b.arcs.size(); ++j){
-                    Arc a = b.arcs.get(j);
-                    if (nextPlaneID >= planePool.size()){
-                        planePool.add(new Plane(new Point(0, 0, 0), new Vector(0, 0, 0)));
-                    }
-                    Plane p = planePool.get(nextPlaneID);
-                    p.redefine(a.center, a.normal);
-                    nextPlaneID++;
-                }
-            }
-            currIter = 0;
-            curr = sp;
-            for (int i = 0; i < neighbors.size(); ++i) {
-                Neighbor<double[], SphericalPatch> n = neighbors.get(i);
-                if (n.value == sp) {
-                    continue;
-                }
-                SphericalPatch sp2 = n.value;
-                if (sp.intersectingPatches.contains(sp2.id)) {
-                    continue;
-                }
-                if (nextPlaneID >= planePool.size()){
-                    planePool.add(new Plane(new Point(0, 0, 0), new Vector(0, 0, 0)));
-                }
-                Plane intersectingPlane = planePool.get(nextPlaneID);
-                Point center = intersectingPlane.p;
-                double radius = computeIntersectionCircle(sp.sphere.center, sp2.sphere.center, center, SesConfig.probeRadius);
-                intersectingPlane.v.changeVector(sp.sphere.center, center).makeUnit();
-                intersectingPlane.redefine(intersectingPlane.p, intersectingPlane.v);
-
-                if (Point.distance(sp.sphere.center, sp2.sphere.center) < 0.008){
-                    continue;
-                }
-                intersectionPoints.clear();
-                exclude.clear();
-                findIntersectionPoints(sp, center, radius, intersectionPoints, exclude);
-
-                currInt = intersectionPoints;
-                currCirc = intersectingPlane;
-                currRad = radius;
-                toRemove.clear();
-                if (intersectionPoints.size() > 1) {
-                    if (!pointsLieOnPatch(sp2, intersectionPoints) && sp.patchNormal.dotProduct(sp2.patchNormal) > 0.8){
-                        continue;
-                    }
-                    boolean identicalIntersector = false;
-                    for (int j = 0; j < nextPlaneID; ++j){
-                        if (planePool.get(j).isIdenticalWith(intersectingPlane)){
-                            identicalIntersector = true;
-                            break;
-                        }
-                    }
-                    if (!identicalIntersector){
-                        nextPlaneID++;
-                    }
-                    if (!identicalIntersector){//p!identicalIntersector){//lanes.get(sp.id).stream().noneMatch(plane -> plane.isIdenticalWith(p))) {
-                        sp.intersectingPatches.add(sp2.id);
-
-                        generateNewBoundaries(sp, intersectionPoints, intersectingPlane, radius, sp2.id,false);
-                        currIter++;
-                    }
-                } else if (intersectionPoints.size() == 0) {
-                    ArcUtil.redefineBoundary(_b, intersectingPlane, radius, vrtsPool, 45);
-                    ArcUtil.buildEdges(_b, true);
-                    boolean nest = false;
-                    removeFromSP.clear();
-                    processed.clear();
-                    Boundary _newB = null;
-                    for (int j = 0; j < sp.boundaries.size(); ++j){
-                        Boundary b = sp.boundaries.get(j);
-                        if (removeFromSP.contains(b) || processed.contains(b)){
-                            continue;
-                        }
-                        boolean isInside = true;
-                        for (int k = 0; k < b.arcs.size(); ++k){
-                            Arc a = b.arcs.get(k);
-                            rho.redefine(a.center, a.normal);
-                            for (int l = 0; l < _b.vrts.size(); ++l){
-                                if (!(rho.checkPointLocation(_b.vrts.get(l)) > 0.0)){
-                                    isInside = false;
-                                    break;
-                                }
-                            }
-                        }
-                        if (isInside){
-                            for (int k = 0; k < b.nestedBoundaries.size(); ++k){
-                                Boundary nb = b.nestedBoundaries.get(k);
-                                for (int l = 0; l < nb.arcs.size(); ++l){
-                                    Arc a = nb.arcs.get(l);
-                                    rho.redefine(a.center, a.normal);
-                                    for (int m = 0; m < _b.vrts.size(); ++m){
-                                        if (!(rho.checkPointLocation(_b.vrts.get(m)) > 0.0)){
-                                            isInside = false;
-                                            break;
-                                        }
-                                    }
-                                }
-                            }
-                            if (isInside) {
-                                _newB = new Boundary();
-                                Point _center = new Point(_b.arcs.get(0).center);
-                                Arc _a1 = ArcUtil.cloneArc(_b.arcs.get(0));
-                                _a1.center = _center;
-                                Arc _a2 = new Arc(_a1.center, _a1.radius);
-                                _a2.setEndPoints(_a1.end2, _a1.end1, false);
-                                _a2.setNormal(_a1.normal);
-                                _a2.vrts.add(_a2.end1);
-                                for (int k = 1; k < _b.arcs.get(1).vrts.size() - 1; ++k){
-                                    _a2.vrts.add(new Point(_b.arcs.get(1).vrts.get(k)));
-                                }
-                                _a2.vrts.add(_a2.end2);
-                                _newB.arcs.add(_a1);
-                                _newB.arcs.add(_a2);
-                                ArcUtil.buildEdges(_newB, true);
-                                _newB.nestedBoundaries.add(b);
-                                _newB.nestedBoundaries.addAll(b.nestedBoundaries);
-                                for (int k = 0; k < _newB.nestedBoundaries.size(); ++k) {
-                                    Boundary nb = _newB.nestedBoundaries.get(k);
-                                    nb.nestedBoundaries.add(_newB);
-                                }
-                                toRemove.clear();
-                                for (int k = 0; k < _newB.nestedBoundaries.size(); ++k){
-                                    Boundary nb = _newB.nestedBoundaries.get(k);
-                                    for (int l = 0; l < nb.arcs.size(); ++l){
-                                        Arc a = nb.arcs.get(l);
-                                        for (int m = 0; m < a.vrts.size(); ++m){
-                                            if (!(intersectingPlane.checkPointLocation(a.vrts.get(m)) > 0.0)){
-                                                toRemove.add(nb);
-                                                break;
-                                            }
-                                        }
-                                    }
-                                }
-                                _newB.nestedBoundaries.removeAll(toRemove);
-                                removeFromSP.addAll(toRemove);
-                                for (int k = 0; k < _newB.nestedBoundaries.size(); ++k){
-                                    Boundary nb = _newB.nestedBoundaries.get(k);
-                                    nb.nestedBoundaries.removeAll(toRemove);
-                                }
-                                processed.addAll(_newB.nestedBoundaries);
-                                nest = true;
-                            }
-                        }
-                    }
-                    if (nest){
-                        _newB.patch = sp;
-                        sp.boundaries.removeAll(removeFromSP);
-                        sp.boundaries.add(_newB);
-                    }
-
-                }
-            }
-        } catch (Exception e){
-            e.printStackTrace();
-        }
-    }
-
     private static void findIntersectionPoints(SphericalPatch sp, Point circle, double radius, List<Point> intersectionPoints, List<Arc> exclude){
         circleN.changeVector(sp.sphere.center, circle).makeUnit();
         p1.redefine(circle, circleN);
@@ -1223,8 +1446,6 @@ public class PatchUtil {
         }
     }
 
-
-
     private static Point findOptimalPoint(List<Point> points, List<Point> usedPoints, SphericalPatch sp, Plane plane){
         try {
             for (int i = 0; i < points.size(); ++i) {
@@ -1245,269 +1466,6 @@ public class PatchUtil {
         }
         return null;
     }
-
-
-
-    public static void trimSelfIntersectingPatch(Arc arc){
-        try {
-            if (!arc.valid || !arc.intersecting){
-                return;
-            }
-            SphericalPatch sp = arc.owner;
-            intersectionPoints.clear();
-            exclude.clear();
-            exclude.add(arc);
-            invalid.clear();
-            findIntersectionPoints(sp, arc.center, arc.radius, intersectionPoints, exclude);
-            for (int i = 0; i < intersectionPoints.size(); ++i){
-                Point v = intersectionPoints.get(i);
-                if (Point.distance(v, arc.prev.end1) < 0.0015 || Point.distance(v, arc.next.end2) < 0.0015){
-                    invalid.add(v);
-                }
-            }
-            intersectionPoints.removeAll(invalid);
-            if (intersectionPoints.size() > 1){ //theoretically at most 2 intersection points should be encountered(and in most cases), 1 point is special case which is not handled right now(it is rare)
-                for (int i = 0; i < sp.boundaries.size(); ++i){
-                    Boundary b = sp.boundaries.get(i);
-                    for (int j = 0; j < b.arcs.size(); ++j){
-                        Arc a = b.arcs.get(j);
-                        a.valid = false;
-                    }
-                }
-                Plane circle = rho;// new Plane(arc.center, arc.normal);
-                rho.redefine(arc.center, arc.normal);
-                newBS.clear();
-                Point first = ArcUtil.findClosestPointOnCircle(intersectionPoints, arc.end1, true, arc.center, arc.normal, true);
-                intersectionPoints.remove(first);
-                Arc a = first.arc;//ArcUtil.findContainingArc(first, circle, sp, arc);
-                if (Point.distance(a.end1, first) < 0.001 && nextSign(first, a, circle) < 0.0){
-                    a = a.prev;
-                } else if (Point.distance(a.end2, first) < 0.001 && nextSign(first, a, circle) > 0.0){
-                    a = a.next;
-                }
-                if (a == null){
-                    int c = 4;
-                }
-                Boundary b = new Boundary();
-                Arc newA = (Point.distance(first, arc.end1) < 0.003) ? null : new Arc(arc.center, arc.radius);
-                if (newA != null) {
-                    newA.vrts.add(arc.end1);
-                    newA.vrts.add(first);
-                    newA.setEndPoints(arc.end1, first, false);
-                    newA.setNormal(arc.normal);
-                    if (arc.cuspTriangle != null){
-                        int subdLevel = ArcUtil.getSubdivisionLevel(arc);
-                        newA.cuspTriangle = arc.cuspTriangle;
-                        if (newA.cuspTriangle.left == arc){
-                            newA.cuspTriangle.left = newA;
-                        } else {
-                            newA.cuspTriangle.right = newA;
-                        }
-                        ArcUtil.refineArc(newA, 0, true, subdLevel, false);
-                    } else {
-                        ArcUtil.refineArc(newA, Surface.maxEdgeLen, false, 0, false);
-                    }
-                    if (arc.torus != null){
-                        if (arc.torus.tr1 != null){
-                            if (arc == arc.torus.tr1.left){
-                                arc.torus.tr1.left = newA;
-                            } else if (arc == arc.torus.tr1.right){
-                                arc.torus.tr1.right = newA;
-                            } else if (arc == arc.torus.tr2.left){
-                                arc.torus.tr2.left = newA;
-                            } else if (arc == arc.torus.tr2.right){
-                                arc.torus.tr2.right = newA;
-                            }
-                        } else {
-                            if (arc.torus.concavePatchArcs.get(0) == arc){
-                                arc.torus.concavePatchArcs.remove(arc);
-                                arc.torus.concavePatchArcs.add(newA);
-                            } else {
-                                arc.torus.concavePatchArcs.remove(arc);
-                                arc.torus.concavePatchArcs.add(newA);
-                            }
-                        }
-                        newA.torus = arc.torus;
-                    }
-                } else {
-                    first = arc.end1;
-                }
-                Arc newA2 = new Arc(a.center, a.radius);
-                newA2.vrts.add(first);
-                newA2.vrts.add(a.end2);
-                newA2.setEndPoints(first, a.end2, false);
-                newA2.setNormal(a.normal);
-                if (a.cuspTriangle != null){
-                    int subdLevel = ArcUtil.getSubdivisionLevel(a);
-                    newA2.cuspTriangle = a.cuspTriangle;
-                    if (a.cuspTriangle.left == a){
-                        newA2.cuspTriangle.left = newA2;
-                    } else {
-                        newA2.cuspTriangle.right = newA2;
-                    }
-                    ArcUtil.refineArc(newA2, 0, true, subdLevel, false);
-                } else {
-                    ArcUtil.refineArc(newA2, Surface.maxEdgeLen, false, 0, false);
-                }
-                if (a.torus != null){
-                    if (a.torus.tr1 != null){
-                        if (a == a.torus.tr1.left){
-                            a.torus.tr1.left = newA2;
-                        } else if (a == a.torus.tr1.right){
-                            a.torus.tr1.right = newA2;
-                        } else if (a == a.torus.tr2.left){
-                            a.torus.tr2.left = newA2;
-                        } else if (a == a.torus.tr2.right){
-                            a.torus.tr2.right = newA2;
-                        }
-                    } else {
-                        if (a.torus.concavePatchArcs.get(0) == a){
-                            a.torus.concavePatchArcs.remove(a);
-                            a.torus.concavePatchArcs.add(newA2);
-                        } else {
-                            a.torus.concavePatchArcs.remove(a);
-                            a.torus.concavePatchArcs.add(newA2);
-                        }
-                    }
-                    newA2.torus = a.torus;
-                }
-                if (newA != null) {
-                    b.arcs.add(newA);
-                }
-                b.arcs.add(newA2);
-                Arc start = arc;
-                Arc a_ = a.next;
-                while (a_ != start) {
-                    b.arcs.add(a_);
-                    if (a_ == null){
-                        System.out.println(" ");
-                    }
-                    if (a_.next == null){
-                        System.out.println(" ");
-                    }
-                    a_ = a_.next;
-                }
-
-                b.patch = sp;
-                ArcUtil.buildEdges(b, true);
-
-                newBS.add(b);
-
-                Point second = intersectionPoints.get(0); //remaining intersection point
-                a = second.arc;//ArcUtil.findContainingArc(second, circle, sp, arc);
-                if (Point.distance(second, a.end1) < 0.001 && nextSign(second, a, circle) < 0.0){
-                    a = a.prev;
-                } else if (Point.distance(second, a.end2) < 0.001 && nextSign(second, a, circle) > 0.0){
-                    a = a.next;
-                }
-                b = new Boundary();
-                newA = new Arc(a.center, a.radius);
-                newA.vrts.add(a.end1);
-                newA.vrts.add(second);
-                newA.setEndPoints(a.end1, second, false);
-                newA.setNormal(a.normal);
-                if (a.cuspTriangle != null){
-                    int subdLevel = ArcUtil.getSubdivisionLevel(a);
-                    newA.cuspTriangle = a.cuspTriangle;
-                    if (a.cuspTriangle.left == a){
-                        newA.cuspTriangle.left = newA;
-                    } else {
-                        newA.cuspTriangle.right = newA;
-                    }
-                    ArcUtil.refineArc(newA, 0, true, subdLevel, false);
-                } else {
-                    ArcUtil.refineArc(newA, Surface.maxEdgeLen, false, 0, false);
-                }
-
-                if (a.torus != null){
-                    if (a.torus.tr1 != null){
-                        if (a == a.torus.tr1.left){
-                            a.torus.tr1.left = newA;
-                        } else if (a == a.torus.tr1.right){
-                            a.torus.tr1.right = newA;
-                        } else if (a == a.torus.tr2.left){
-                            a.torus.tr2.left = newA;
-                        } else if (a == a.torus.tr2.right){
-                            a.torus.tr2.right = newA;
-                        }
-                    } else {
-                        if (a.torus.concavePatchArcs.get(0) == a){
-                            a.torus.concavePatchArcs.remove(a);
-                            a.torus.concavePatchArcs.add(newA);
-                        } else {
-                            a.torus.concavePatchArcs.remove(a);
-                            a.torus.concavePatchArcs.add(newA);
-                        }
-                    }
-                    newA.torus = a.torus;
-                }
-                newA2 = (Point.distance(second, arc.end2) < 0.003) ? null : new Arc(arc.center, arc.radius);
-                if (newA2 != null) {
-                    newA2.vrts.add(second);
-                    newA2.vrts.add(arc.end2);
-                    newA2.setEndPoints(second, arc.end2, false);
-                    newA2.setNormal(arc.normal);
-                    if (arc.cuspTriangle != null){
-                        int subdLevel = ArcUtil.getSubdivisionLevel(arc);
-                        newA2.cuspTriangle = arc.cuspTriangle;
-                        if (arc.cuspTriangle.left == arc){
-                            newA2.cuspTriangle.left = newA2;
-                        } else {
-                            newA2.cuspTriangle.right = newA2;
-                        }
-                        ArcUtil.refineArc(newA2, 0, true, subdLevel, false);
-                    } else {
-                        ArcUtil.refineArc(newA2, Surface.maxEdgeLen, false, 0, false);
-                    }
-                    if (arc.torus != null){
-                        if (arc.torus.tr1 != null){
-                            if (arc == arc.torus.tr1.left){
-                                arc.torus.tr1.left = newA2;
-                            } else if (arc == arc.torus.tr1.right){
-                                arc.torus.tr1.right = newA2;
-                            } else if (arc == arc.torus.tr2.left){
-                                arc.torus.tr2.left = newA2;
-                            } else if (arc == arc.torus.tr2.right){
-                                arc.torus.tr2.right = newA2;
-                            }
-                        } else {
-                            if (arc.torus.concavePatchArcs.get(0) == arc){
-                                arc.torus.concavePatchArcs.remove(arc);
-                                arc.torus.concavePatchArcs.add(newA2);
-                            } else {
-                                arc.torus.concavePatchArcs.remove(arc);
-                                arc.torus.concavePatchArcs.add(newA2);
-                            }
-                        }
-                        newA2.torus = arc.torus;
-                    }
-                } else {
-                    second = arc.end2;
-                    newA.end2 = second;
-                    newA.vrts.remove(newA.vrts.size() - 1);
-                    newA.vrts.add(second);
-                }
-                start = a;
-                a_ = arc.next;
-                b.arcs.add(newA);
-                if (newA2 != null) {
-                    b.arcs.add(newA2);
-                }
-                while (a_ != start) {
-                    b.arcs.add(a_);
-                    a_ = a_.next;
-                }
-                b.patch = sp;
-                ArcUtil.buildEdges(b, true);
-                newBS.add(b);
-                sp.boundaries.clear();
-                sp.boundaries.addAll(newBS);
-            }
-        } catch (Exception e){
-            e.printStackTrace();
-        }
-    }
-
 
     private static List<Point> getUsablePoints(List<Point> intersectionPoints, Point origin, Point start, SphericalPatch sp, Plane circle){
         usedPoints2.clear();
@@ -1695,16 +1653,6 @@ public class PatchUtil {
         return false;
     }
 
-
-    public static Point genP(Arc a, Point p, int dir){
-        _genVector.changeVector(p, a.center).makeUnit();
-        _genQuaternion.setFromAngleNormalAxis((float)(dir * Math.toRadians(2)), a.normal.getFloatData());
-        _genQuaternion.rotateVector(_floatVector, 0, _genVector.getFloatData(), 0);
-        _genVector.changeVector(_floatVector[0], _floatVector[1], _floatVector[2]);
-        _genVector.makeUnit().multiply(a.radius);
-        return _nextPoint.assignTranslation(a.center, _genVector);
-    }
-
     private static boolean isOptimal(Point p, Arc a, Plane circle){
         int dir = 1;
         if (Point.distance(p, a.end2) < 0.001){
@@ -1721,6 +1669,15 @@ public class PatchUtil {
         _genVector.changeVector(_p, circle.p).multiply(10.f);
         _nextPoint.assignTranslation(circle.p, _genVector);
         return circle.checkPointLocation(_nextPoint);
+    }
+
+    public static Point genP(Arc a, Point p, int dir){
+        _genVector.changeVector(p, a.center).makeUnit();
+        _genQuaternion.setFromAngleNormalAxis((float)(dir * Math.toRadians(2)), a.normal.getFloatData());
+        _genQuaternion.rotateVector(_floatVector, 0, _genVector.getFloatData(), 0);
+        _genVector.changeVector(_floatVector[0], _floatVector[1], _floatVector[2]);
+        _genVector.makeUnit().multiply(a.radius);
+        return _nextPoint.assignTranslation(a.center, _genVector);
     }
 
     private static boolean arcInsideHyperspace(Arc a, Plane circle, Point p){
@@ -1772,5 +1729,37 @@ public class PatchUtil {
                return vertexID / tp.concavePatchArcs.get(0).vrts.size();
            }
         }
+    }
+
+    public static double computeIntersectionCircle(Point probe1, Point probe2, Point result, double probeRadius){
+        v1.changeVector(probe1, probe2).multiply(0.5f);
+        point.assignTranslation(probe2, v1);
+        result.x = point.x;
+        result.y = point.y;
+        result.z = point.z;
+        return Math.sqrt(Math.pow(probeRadius, 2) - Math.pow(v1.sqrtMagnitude(), 2));
+    }
+
+    /*
+    computes cusp points for self-intersecting toroidal patch
+     */
+    public static Point computeCusp(Point probe, Sphere a1, Sphere a2){
+        v1.changeVector(a2.center, a1.center).makeUnit(); //axis
+        v2.changeVector(probe, a1.center).makeUnit(); //a1toprobe
+        double atomToProbeLength = a1.radius + SesConfig.probeRadius;
+        v2.makeUnit();
+        double alpha = Math.acos(v1.dotProduct(v2));
+        double beta = Math.asin(((atomToProbeLength) * Math.sin(alpha)) / SesConfig.probeRadius);
+        double gama = Math.PI - alpha - beta;
+        double atomToCusp = (SesConfig.probeRadius * Math.sin(gama)) / Math.sin(alpha);
+        v1.multiply(atomToCusp);
+        return Point.translatePoint(a1.center, v1);
+    }
+
+    public static double getProbeAxisDistance(Point probe, Point a1, Point a2){
+        v1.changeVector(a2, a1).makeUnit(); //axis vector
+        v2.changeVector(probe, a1); //vector to probe
+        v1.multiply(v2.dotProduct(v1));
+        return v3.assignAddition(v2, v1.multiply(-1)).sqrtMagnitude();
     }
 }

@@ -10,7 +10,6 @@ public class Sphere {
     }
 
     public static Point getContactPoint(Sphere s1, Sphere s2){
-        //Vector v = Point.subtractPoints(s1.center, s2.center).makeUnit();
         v.changeVector(s1.center, s2.center).makeUnit();
         v.multiply(s2.radius);
         return Point.translatePoint(s2.center, v);

@@ -334,7 +334,6 @@ public class MainPanelController {
                 }
             }
         });
-        System.out.println("FONT SIZE: " + Font.getDefault().getSize());
         chkPinToView.setDisable(true);
         chkPinToView.setText("Pin to main view");
         chkPinToView.setOnAction(new EventHandler<ActionEvent>() {
@@ -480,7 +479,7 @@ public class MainPanelController {
             lblAtomCount.setText(Integer.toString(SesConfig.atomCount));
             lblProbeRadius.setText(Double.toString(SesConfig.probeRadius));
             Surface.probeRadius.set(Double.doubleToLongBits(SesConfig.probeRadius));
-            AnchorPane anch = (AnchorPane) loader.load();
+            AnchorPane anch =  loader.load();
             Scene scene = new Scene(anch);
             Stage stage = new Stage();
             stage.setScene(scene);
@@ -543,7 +542,6 @@ public class MainPanelController {
                     cmbResolution.setDisable(false);
                     chkPinToView.fire();
                     sldMouseSensitivity.setDisable(false);
-                    //cmbResolution.getSelectionModel().select(1);
                     stage.close();
                 }
             });

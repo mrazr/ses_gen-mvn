@@ -410,11 +410,7 @@ public class AdvancingFrontMethod {
                     ignore.clear();
                     ignore.add(e);
                     if (checkForIntersectingEdges(e1, e2, facets, ignore)){// || checkForIntersectingEdges(e1, e2, pastFacets, ignore)) {
-                        //if (!(Math.abs(midNormal.dotProduct(PatchUtil.computeTriangleNormal(e.p1, e.p2, e.next.p2))) < 0.01) && hasCorrectOrientation(e.p1, e.p2, e.next.p2)){
                         if (!(Math.abs(midNormal.dotProduct(computeTriangleNormal(e.p1, e.p2, e.next.p2))) < 0.01) && hasCorrectOrientation(e.p1, e.p2, e.next.p2)){
-                            //System.out.println(patch.id + " adding invalid vertex nextp2");
-                            //eL.p1 = e.p1;
-                            //eL.p2 = e.next.p2;
                             boolean intersects = false;
                             for (int i = 0; i < facets.size(); ++i){
                                 Edge ek = facets.get(i);
@@ -438,11 +434,7 @@ public class AdvancingFrontMethod {
                                 }
                             }
                         }
-                        //if (!(Math.abs(midNormal.dotProduct(PatchUtil.computeTriangleNormal(e.p1, e.p2, e.prev.p1))) < 0.01) && hasCorrectOrientation(e.p1, e.p2, e.prev.p1)){
                         if (!(Math.abs(midNormal.dotProduct(computeTriangleNormal(e.p1, e.p2, e.prev.p1))) < 0.01) && hasCorrectOrientation(e.p1, e.p2, e.prev.p1)){
-                            //System.out.println(patch.id + " adding invalid vertex prevp1");
-                            //eL.p1 = e.p2;
-                            //eL.p2 = e.prev.p1;
                             boolean intersects = false;
                             for (int i = 0; i < facets.size(); ++i){
                                 Edge ek = facets.get(i);
@@ -503,16 +495,7 @@ public class AdvancingFrontMethod {
             }
         }
         if (facets.size() == 0){
-            //patchComplete = true;
             boundaryComplete = true;
-            //if (concavePatch){
-            //    if (processedBoundaries.size() == patch.boundaries.size()){
-            //        atomComplete = true;
-            //    }
-            //}
-            //if (!concavePatch && processedBoundaries.size() == patch.boundaries.size()){
-            //    atomComplete = true;
-            //}
             if (processedBoundaries.size() == patch.boundaries.size()){
                 patchComplete = true;
             }
@@ -1036,9 +1019,7 @@ public class AdvancingFrontMethod {
     }
 
     private boolean hasCorrectOrientation(Point a, Point b, Point c){
-        //Vector n = Vector.getNormalVector(Point.subtractPoints(b, a).makeUnit(), Point.subtractPoints(c, a).makeUnit()).makeUnit();
         n.assignNormalVectorOf(aV1.changeVector(b, a).makeUnit(), aV2.changeVector(c, a).makeUnit()).makeUnit();
-        //return n.dotProduct(Point.subtractPoints(a, patch.sphere.center).makeUnit()) > 0.0;
         return n.dotProduct(v3.changeVector(a, patch.sphere.center).makeUnit()) > 0.0;
     }
 }

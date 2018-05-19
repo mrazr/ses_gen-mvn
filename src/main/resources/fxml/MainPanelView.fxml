@@ -35,7 +35,7 @@
                                        <children>
                                           <ScrollPane fx:id="scrOverallInfo" layoutY="-14.0" prefHeight="200.0" prefWidth="200.0" AnchorPane.bottomAnchor="0.0" AnchorPane.leftAnchor="0.0" AnchorPane.rightAnchor="0.0" AnchorPane.topAnchor="0.0">
                                              <content>
-                                                <GridPane fx:id="grdOverallInfo" prefHeight="148.0" prefWidth="270.0">
+                                                <GridPane fx:id="grdOverallInfo" prefHeight="177.0" prefWidth="270.0">
                                                   <columnConstraints>
                                                     <ColumnConstraints halignment="LEFT" hgrow="SOMETIMES" maxWidth="185.0" minWidth="10.0" prefWidth="185.0" />
                                                     <ColumnConstraints halignment="CENTER" hgrow="SOMETIMES" maxWidth="129.0" minWidth="10.0" prefWidth="85.0" />
@@ -43,6 +43,7 @@
                                                   <rowConstraints>
                                                     <RowConstraints minHeight="10.0" prefHeight="30.0" vgrow="SOMETIMES" />
                                                     <RowConstraints minHeight="10.0" prefHeight="30.0" vgrow="SOMETIMES" />
+                                                      <RowConstraints minHeight="10.0" prefHeight="30.0" vgrow="SOMETIMES" />
                                                       <RowConstraints minHeight="10.0" prefHeight="30.0" vgrow="SOMETIMES" />
                                                       <RowConstraints minHeight="10.0" prefHeight="30.0" vgrow="SOMETIMES" />
                                                       <RowConstraints minHeight="10.0" prefHeight="30.0" vgrow="SOMETIMES" />
@@ -77,6 +78,12 @@
                                                          </padding>
                                                       </Label>
                                                       <Label text="W,S,A,D" GridPane.columnIndex="1" GridPane.rowIndex="4" />
+                                                      <Label text="Show/hide boundary lines" GridPane.rowIndex="5">
+                                                         <padding>
+                                                            <Insets left="10.0" />
+                                                         </padding>
+                                                      </Label>
+                                                      <Label text="L" GridPane.columnIndex="1" GridPane.rowIndex="5" />
                                                    </children>
                                                 </GridPane>
                                              </content>
@@ -147,13 +154,13 @@
                                                                   <Insets left="10.0" />
                                                                </padding>
                                                             </Label>
-                                                            <Label fx:id="lblAtomRadius" text="Label" GridPane.columnIndex="1" />
+                                                            <Label fx:id="lblAtomRadius" GridPane.columnIndex="1" />
                                                             <Label text="Boundary count:" GridPane.rowIndex="1">
                                                                <padding>
                                                                   <Insets left="10.0" />
                                                                </padding>
                                                             </Label>
-                                                            <Label fx:id="lblBoundaryCount" text="Label" GridPane.columnIndex="1" GridPane.rowIndex="1" />
+                                                            <Label fx:id="lblBoundaryCount" GridPane.columnIndex="1" GridPane.rowIndex="1" />
                                                          </children>
                                                       </GridPane>
                                                    </children>
