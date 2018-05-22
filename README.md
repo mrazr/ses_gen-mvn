@@ -34,3 +34,5 @@ It is recommended to run the application with JVM configurated with 1GB of initi
 in output.obj file and exits.
 
 Example data can be found in `src/main/resources/proteins/` folder.
+
+When creating a Run configuration in your IDE, set Main.java as the Main class and also provide program arguments as you would in the case of executing `ses_gen.jar`.
