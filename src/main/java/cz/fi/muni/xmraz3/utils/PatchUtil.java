@@ -1342,7 +1342,7 @@ public class PatchUtil {
                         }
                     }
                     if (!valid && SesConfig.verbose){
-                        System.out.println("possible invalid boundary for: " + sp.id);
+                        System.err.println("possible invalid boundary for: " + sp.id);
                     }
                 }
             }

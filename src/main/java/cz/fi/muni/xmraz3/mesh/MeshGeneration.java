@@ -58,7 +58,7 @@ public class MeshGeneration {
                     ArcUtil.indexPoints(a);
                     afm.meshSphericalPatch(a);
                     if (afm.loop && SesConfig.verbose){
-                        System.out.println((a.convexPatch) ? "convex " + i + " looped" : "concave " + i + " looped");
+                        System.err.println((a.convexPatch) ? "convex " + i + " looped" : "concave " + i + " looped");
                     }
                     a.meshed = true;
                     afm.transferFacesToPatch();
@@ -94,42 +94,12 @@ public class MeshGeneration {
     public static void reset(){
         trianglesGenerated.set(0);
         finished.set(false);
-        //_triangles[0] = _triangles[1] = _triangles[2] = _triangles[3] = 0;
         for (int i = 0; i < THREAD_COUNT; ++i){
             _triangles[i] = 0;
         }
        afms = new AdvancingFrontMethod[THREAD_COUNT];
         for (int i = 0; i < THREAD_COUNT; ++i){
             afms[i] = new AdvancingFrontMethod();
-        }
-        Runnable r1 = new Runnable() {
-            @Override
-            public void run() {
-                //MeshGeneration.convexEdgeSplitMap = new ArrayList<>(SesConfig.atomCount);
-                /*for (int i = 0; i < SesConfig.atomCount; ++i){
-                    MeshGeneration.convexEdgeSplitMap.add(new TreeMap<>());
-                }*/
-
-            }
-        };
-        Thread t1 = new Thread(r1);
-        t1.start();
-        Runnable r2 = new Runnable() {
-            @Override
-            public void run() {
-                /*MeshGeneration.concaveEdgeSplitMap = new ArrayList<>(SesConfig.trianglesCount);
-                for (int i = 0; i < SesConfig.trianglesCount; ++i){
-                    MeshGeneration.concaveEdgeSplitMap.add(new TreeMap<>());
-                }*/
-            }
-        };
-        Thread t2 = new Thread(r2);
-        t2.start();
-        try {
-            t1.join();
-            t2.join();
-        } catch (InterruptedException e){
-            e.printStackTrace();
         }
     }
 

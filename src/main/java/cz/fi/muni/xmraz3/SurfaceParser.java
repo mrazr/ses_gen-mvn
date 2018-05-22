@@ -70,32 +70,6 @@ public class SurfaceParser {
         }
     }
 
-    public static List<SphericalPatch> parseAtomsJSON(String raw){
-        List<SphericalPatch> atList = new ArrayList<>();
-        try{
-            JSONParser parser = new JSONParser();
-            Object obj = parser.parse(raw);
-            JSONArray ar = (JSONArray)obj;
-            for (Object oj : ar){
-                JSONObject at = (JSONObject)oj;
-                JSONObject atom = (JSONObject)at.get("atom");
-                double x = (double)atom.get("x");
-                double y = (double)atom.get("y");
-                double z = (double)atom.get("z");
-                double r = (double)atom.get("r");
-                Surface.centerOfgravity.x += x;
-                Surface.centerOfgravity.y += y;
-                Surface.centerOfgravity.z += z;
-                long atId = (long)at.get("id");
-                SphericalPatch spatch = new SphericalPatch(new Point(atom), Surface.scaleFactor * r, true);
-                atList.add(spatch);
-            }
-        } catch (ParseException e){
-            System.err.println("atom parsing error");
-        }
-        return atList;
-    }
-
     private static ArrayList<SphericalPatch> parseAtomsBinary(String filename){
         double x, y, z, r;
         int id = -1;
@@ -142,6 +116,56 @@ public class SurfaceParser {
         }
     }
 
+    private static void parseTrianglesBinary(String filename){
+        double x, y, z;
+        int a1, a2, a3;
+        try (DataInputStream in = new DataInputStream(new FileInputStream(filename))){
+            byte[] buffer = new byte[SesConfig.trianglesCount * 24];
+            in.read(buffer, 0, buffer.length);
+            ByteBuffer data = ByteBuffer.wrap(buffer);
+            for (int i = 0; i < SesConfig.trianglesCount; ++i){
+                a1 = data.getInt();
+                a2 = data.getInt();
+                a3 = data.getInt();
+                x = data.getFloat();
+                y = data.getFloat();
+                z = data.getFloat();
+                constructConcavePatchArcs(new Sphere(new Point(x, y, z), SesConfig.probeRadius), a1, a2, a3);
+            }
+        } catch (IOException e){
+            e.printStackTrace();
+        }
+    }
+
+    /*
+    methods for loading the data in json format...slow for bigger molecules...not tested in the final phase, but should work anyway
+     */
+    public static List<SphericalPatch> parseAtomsJSON(String raw){
+        List<SphericalPatch> atList = new ArrayList<>();
+        try{
+            JSONParser parser = new JSONParser();
+            Object obj = parser.parse(raw);
+            JSONArray ar = (JSONArray)obj;
+            for (Object oj : ar){
+                JSONObject at = (JSONObject)oj;
+                JSONObject atom = (JSONObject)at.get("atom");
+                double x = (double)atom.get("x");
+                double y = (double)atom.get("y");
+                double z = (double)atom.get("z");
+                double r = (double)atom.get("r");
+                Surface.centerOfgravity.x += x;
+                Surface.centerOfgravity.y += y;
+                Surface.centerOfgravity.z += z;
+                long atId = (long)at.get("id");
+                SphericalPatch spatch = new SphericalPatch(new Point(atom), Surface.scaleFactor * r, true);
+                atList.add(spatch);
+            }
+        } catch (ParseException e){
+            System.err.println("atom parsing error");
+        }
+        return atList;
+    }
+
     public static void parseConvexAndToriPatchesJSON(String raw){
         try{
             JSONParser parser = new JSONParser();
@@ -163,27 +187,6 @@ public class SurfaceParser {
                 constructConvexPatchArcs(atom1, atom2, probe1, probe2, probeMid);
             }
         } catch (ParseException e){
-		e.printStackTrace();
-        }
-    }
-
-    private static void parseTrianglesBinary(String filename){
-        double x, y, z;
-        int a1, a2, a3;
-        try (DataInputStream in = new DataInputStream(new FileInputStream(filename))){
-            byte[] buffer = new byte[SesConfig.trianglesCount * 24];
-            in.read(buffer, 0, buffer.length);
-            ByteBuffer data = ByteBuffer.wrap(buffer);
-            for (int i = 0; i < SesConfig.trianglesCount; ++i){
-                a1 = data.getInt();
-                a2 = data.getInt();
-                a3 = data.getInt();
-                x = data.getFloat();
-                y = data.getFloat();
-                z = data.getFloat();
-                constructConcavePatchArcs(new Sphere(new Point(x, y, z), SesConfig.probeRadius), a1, a2, a3);
-            }
-        } catch (IOException e){
             e.printStackTrace();
         }
     }
@@ -316,7 +319,7 @@ public class SurfaceParser {
             }
             if (tp == null) {
                 if (SesConfig.verbose) {
-                    System.out.println("corresponding rolling patch not found for " + atom1 + " " + atom2);
+                    System.err.println("Corresponding rolling patch not found for " + atom1 + " " + atom2);
                 }
             } else {
                 tp.concavePatchArcs.add(cpl1);
@@ -359,7 +362,9 @@ public class SurfaceParser {
                 }
             }
             if (tp == null) {
-                System.out.println("corresponding rolling patch not found for " + atom1 + " " + atom3);
+                if (SesConfig.verbose) {
+                    System.err.println("Corresponding rolling patch not found for " + atom1 + " " + atom3);
+                }
             } else {
                 tp.concavePatchArcs.add(cpl2);
                 cpl2.torus = tp;
@@ -395,7 +400,9 @@ public class SurfaceParser {
                 }
             }
             if (tp == null) {
-                System.out.println("corresponding rolling patch not found for " + atom2 + " " + atom3);
+                if (SesConfig.verbose) {
+                    System.err.println("corresponding rolling patch not found for " + atom2 + " " + atom3);
+                }
             } else {
                 tp.concavePatchArcs.add(cpl3);
                 cpl3.torus = tp;
@@ -422,9 +429,6 @@ public class SurfaceParser {
             int i = 0;
             boolean error = false;
             do {
-                if (q.size() == 0){
-                    System.out.println("");
-                }
                 Arc l = q.get(i);
                 if (Point.distance(pivot, l.end1) < 0.001) {
                     pivotLoop.next = l;
@@ -566,6 +570,7 @@ public class SurfaceParser {
             }
             if (SesConfig.useGUI){
                 MainPanelController.setBtnRemeshPossible(true);
+                MainPanelController.setBtnExportEnabled(true);
             }
             if (SesConfig.verbose) {
                 System.out.println("Convex patches count: " + Surface.convexPatches.size());

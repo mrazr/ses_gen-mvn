@@ -7,9 +7,7 @@ import cz.fi.muni.xmraz3.gui.MainPanel;
 import cz.fi.muni.xmraz3.gui.MainWindow;
 import javafx.application.Platform;
 import javafx.beans.property.DoubleProperty;
-import javafx.beans.property.IntegerProperty;
 import javafx.beans.property.SimpleDoubleProperty;
-import javafx.beans.property.SimpleIntegerProperty;
 import javafx.beans.value.ChangeListener;
 import javafx.beans.value.ObservableValue;
 import javafx.concurrent.WorkerStateEvent;
@@ -20,19 +18,11 @@ import javafx.fxml.FXMLLoader;
 import javafx.geometry.Insets;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
-import javafx.scene.control.Button;
-import javafx.scene.control.Label;
-import javafx.scene.control.ScrollPane;
-import javafx.scene.control.TextField;
 import javafx.scene.layout.AnchorPane;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
-import javafx.scene.text.Font;
-import javafx.stage.DirectoryChooser;
-import javafx.stage.Modality;
-import javafx.stage.Stage;
-import javafx.stage.WindowEvent;
+import javafx.stage.*;
 
 import java.io.File;
 import java.io.IOException;
@@ -43,7 +33,6 @@ import java.util.List;
 public class MainPanelController {
 
     public static DoubleProperty probeRadius = new SimpleDoubleProperty(0.0);
-    public static IntegerProperty atomCount = new SimpleIntegerProperty(0);
     @FXML
     private TextField txtConvexPatch;
     @FXML
@@ -53,12 +42,6 @@ public class MainPanelController {
     @FXML
     private GridPane grdSelectedAtom;
     @FXML
-    private Label lblAtomRadius;
-    @FXML
-    private Label lblBoundaryCount;
-    @FXML
-    private Label lblAtomName;
-    @FXML
     private Button btnOpenFolder;
     @FXML
     private TextField txtFolder;
@@ -66,8 +49,6 @@ public class MainPanelController {
     private CheckBox chkPinToView;
     @FXML
     private ComboBox<String> cmbResolution;
-    @FXML
-    private ScrollPane scrOverallInfo;
     @FXML
     GridPane grdOverallInfo;
     @FXML
@@ -86,9 +67,7 @@ public class MainPanelController {
     private AnchorPane anchScrAnchor;
     @FXML
     private TitledPane tlpExport;
-    private static final int tlpExportHeight = 114;
-    @FXML
-    private TextField txtExportFile;
+    private static final int tlpExportHeight = 80;
     @FXML
     private ComboBox<String> cmbExportFormat;
     @FXML
@@ -216,18 +195,43 @@ public class MainPanelController {
             }
         });
 
+
         btnExport.setOnAction(new EventHandler<ActionEvent>() {
             @Override
             public void handle(ActionEvent event) {
-                if (txtExportFile.getLength() == 0){
+                FileChooser fch = new FileChooser();
+                fch.setTitle("Save mesh as");
+                btnExport.setText("Exporting...");
+                btnExport.setStyle("-fx-background-color: orange");
+                File f = fch.showSaveDialog(root);
+                if (f == null){
+                    btnExport.setText("Export");
+                    btnExport.setStyle("");
                     return;
                 }
                 if (cmbExportFormat.getSelectionModel().getSelectedIndex() == 0){
-                    SurfaceParser.exportSTLText(txtExportFile.getText() + ".stl");
+                    SurfaceParser.exportSTLText(f.toString());
+                } else if (cmbExportFormat.getSelectionModel().getSelectedIndex() == 1){
+                    SurfaceParser.exportOBJ(f.toString(), (char)15);
                 }
-                else if (cmbExportFormat.getSelectionModel().getSelectedIndex() == 1){
-                    SurfaceParser.exportOBJ(txtExportFile.getText() + ".obj", (char)15);
-                }
+                btnExport.setStyle("-fx-background-color: greenyellow");
+                btnExport.setText("Saved");
+                Runnable r = new Runnable() {
+                    @Override
+                    public void run() {
+                        long now = System.currentTimeMillis();
+                        while (System.currentTimeMillis() < now + 2000) {
+                        }
+                        Platform.runLater(new Runnable() {
+                            @Override
+                            public void run() {
+                                btnExport.setText("Export");
+                                btnExport.setStyle("");
+                            }
+                        });
+                    }
+                };
+                (new Thread(r)).start();
             }
         });
 
@@ -590,4 +594,12 @@ public class MainPanelController {
         cont.remeshPossible = val;
     }
 
+    public static void setBtnExportEnabled(boolean val){
+        Platform.runLater(new Runnable() {
+            @Override
+            public void run() {
+                cont.btnExport.disableProperty().set(!val);
+            }
+        });
+    }
 }
