@@ -18,12 +18,7 @@ public class SphericalPatch {
     public List<SphericalPatch> neighbours;
     public List<Integer> intersectingPatches;
     public List<Point> vertices;
-    //public List<Face> faces;
-    //public List<Integer> faces;
-    //public List<Face> dbFaces;
-    //public Map<Integer, Map<Integer, List<Face>>> edgeFacesMap;
     public int[] faces;
-    //public int arcPointCount = 0;
 
     public int id;
     public int nextVertexID = 0;
@@ -32,19 +27,9 @@ public class SphericalPatch {
     public boolean convexPatch = true;
     public boolean valid = true;
     public boolean meshed = false;
-    //public boolean trimmed = false;
 
     //opengl stuff
-    //public int[] vao = new int[2];
-    //public int[] vbo = new int[2];
-    //public int[] ebo = new int[2];
-    //public int usedVrtsBuffer = 0;
-    //public int usedIndBuffer = 0;
-    //public int usedFaceBuffer = 0;
     public int lineCount = 0;
-    //public int vrtsCount = 0;
-    //public int faceCount = 0;
-    //public int faceToHightlight = 0;
     public int vboOffset = 0;
     public int eboOffset = 0;
     public int lineOffset = 0;
@@ -62,9 +47,7 @@ public class SphericalPatch {
         intersectingPatches = new ArrayList<>();
         tori = new TreeMap<>();
         vertices = new ArrayList<>();
-        //faces = new ArrayList<>();
         convexPatch = convex;
-        //edgeFacesMap = new TreeMap<>();
     }
 
     public SphericalPatch(Boundary b){

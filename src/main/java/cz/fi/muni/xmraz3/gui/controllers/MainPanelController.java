@@ -7,9 +7,7 @@ import cz.fi.muni.xmraz3.gui.MainPanel;
 import cz.fi.muni.xmraz3.gui.MainWindow;
 import javafx.application.Platform;
 import javafx.beans.property.DoubleProperty;
-import javafx.beans.property.IntegerProperty;
 import javafx.beans.property.SimpleDoubleProperty;
-import javafx.beans.property.SimpleIntegerProperty;
 import javafx.beans.value.ChangeListener;
 import javafx.beans.value.ObservableValue;
 import javafx.concurrent.WorkerStateEvent;
@@ -20,19 +18,11 @@ import javafx.fxml.FXMLLoader;
 import javafx.geometry.Insets;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
-import javafx.scene.control.Button;
-import javafx.scene.control.Label;
-import javafx.scene.control.ScrollPane;
-import javafx.scene.control.TextField;
 import javafx.scene.layout.AnchorPane;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
-import javafx.scene.text.Font;
-import javafx.stage.DirectoryChooser;
-import javafx.stage.Modality;
-import javafx.stage.Stage;
-import javafx.stage.WindowEvent;
+import javafx.stage.*;
 
 import java.io.File;
 import java.io.IOException;
@@ -43,7 +33,6 @@ import java.util.List;
 public class MainPanelController {
 
     public static DoubleProperty probeRadius = new SimpleDoubleProperty(0.0);
-    public static IntegerProperty atomCount = new SimpleIntegerProperty(0);
     @FXML
     private TextField txtConvexPatch;
     @FXML
@@ -53,12 +42,6 @@ public class MainPanelController {
     @FXML
     private GridPane grdSelectedAtom;
     @FXML
-    private Label lblAtomRadius;
-    @FXML
-    private Label lblBoundaryCount;
-    @FXML
-    private Label lblAtomName;
-    @FXML
     private Button btnOpenFolder;
     @FXML
     private TextField txtFolder;
@@ -66,8 +49,6 @@ public class MainPanelController {
     private CheckBox chkPinToView;
     @FXML
     private ComboBox<String> cmbResolution;
-    @FXML
-    private ScrollPane scrOverallInfo;
     @FXML
     GridPane grdOverallInfo;
     @FXML
@@ -79,13 +60,14 @@ public class MainPanelController {
     @FXML
     private Slider sldProbeAlpha;
     @FXML
+    private Slider sldAmbientStrength;
+    @FXML
     private ScrollPane scrMainPane;
     @FXML
     private AnchorPane anchScrAnchor;
     @FXML
     private TitledPane tlpExport;
-    @FXML
-    private TextField txtExportFile;
+    private static final int tlpExportHeight = 80;
     @FXML
     private ComboBox<String> cmbExportFormat;
     @FXML
@@ -94,14 +76,15 @@ public class MainPanelController {
     private VBox vboSettExp;
     @FXML
     private TitledPane tlpAppSettings;
+    private static final int tlpAppSettingsHeight = 224;
     @FXML
     private TitledPane tlpMesh;
+    private static final int tlpMeshHeight = 250;
     @FXML
     private Spinner<Double> spinnerEdgeLength;
     @FXML
-    private Spinner<Double> spinnerEdgeAngle;
-    @FXML
-    private Button btnTriangulate;
+    private Button btnRemesh;
+    private boolean remeshPossible = false;
     @FXML
     private ColorPicker atomColorPick;
     @FXML
@@ -109,11 +92,17 @@ public class MainPanelController {
     @FXML
     private ColorPicker torusColorPick;
     @FXML
+    private ColorPicker monoColorPick;
+    @FXML
+    private Button btnResetColors;
+    @FXML
+    private CheckBox chkUseMonoColor;
+    @FXML
     private Slider sldMouseSensitivity;
     private boolean tlpExclusiveExpand = false;
-    private boolean updateEdgeAngle = true;
     public static Stage root;
     public static MainPanelController cont;
+    private static final int tbpHeight = 160;
     @FXML
     public void initialize(){
         cont = this;
@@ -124,31 +113,25 @@ public class MainPanelController {
             @Override
             public void handle(ActionEvent event) {
                 DirectoryChooser dch = new DirectoryChooser();
-                //dch.setInitialDirectory(new File(File.listRoots()[0].toString()));
-                //dch.setInitialDirectory(new File("C:\\"));
                 dch.setInitialDirectory(new File(System.getProperty("user.dir")));
                 dch.setTitle("Choose folder with json files");
                 File selectedFolder = dch.showDialog(root);
                 if (selectedFolder == null){
                     return;
                 }
-                //if ()
                 txtFolder.setText(selectedFolder.getAbsolutePath());
                 ActionEvent ae = new ActionEvent();
                 txtFolder.fireEvent(ae);
-                //txtFolder.fireEvent();
-                //startParsingJSON(selectedFolder.getAbsolutePath());
             }
         });
-        //atomColorPick.setValue(Color.rgb(197, 20, 20));
-        //atomColorPick.setValue(Color.valueOf("Gray"));
         atomColorPick.setValue(Color.rgb(204, 102, 51));
         triangleColorPick.setValue(Color.rgb(31, 143, 0));
         torusColorPick.setValue(Color.rgb(51, 77, 179));
+        monoColorPick.setValue(atomColorPick.getValue());
         atomColorPick.valueProperty().addListener(new ChangeListener<Color>() {
             @Override
             public void changed(ObservableValue<? extends Color> observable, Color oldValue, Color newValue) {
-                if (MainWindow.mainWindow != null) {
+                if (MainWindow.mainWindow != null && !chkUseMonoColor.isSelected()) {
                     MainWindow.mainWindow.changeColor(0, (float) newValue.getRed(), (float) newValue.getGreen(), (float) newValue.getBlue());
                 }
             }
@@ -157,7 +140,7 @@ public class MainPanelController {
         triangleColorPick.valueProperty().addListener(new ChangeListener<Color>() {
             @Override
             public void changed(ObservableValue<? extends Color> observable, Color oldValue, Color newValue) {
-                if (MainWindow.mainWindow != null) {
+                if (MainWindow.mainWindow != null && !chkUseMonoColor.isSelected()) {
                     MainWindow.mainWindow.changeColor(1, (float) newValue.getRed(), (float) newValue.getGreen(), (float) newValue.getBlue());
                 }
             }
@@ -166,42 +149,105 @@ public class MainPanelController {
         torusColorPick.valueProperty().addListener(new ChangeListener<Color>() {
             @Override
             public void changed(ObservableValue<? extends Color> observable, Color oldValue, Color newValue) {
-                if (MainWindow.mainWindow != null) {
+                if (MainWindow.mainWindow != null && !chkUseMonoColor.isSelected()) {
                     MainWindow.mainWindow.changeColor(2, (float) newValue.getRed(), (float) newValue.getGreen(), (float) newValue.getBlue());
                 }
             }
         });
 
-        btnExport.setOnAction(new EventHandler<ActionEvent>() {
+        monoColorPick.valueProperty().addListener(new ChangeListener<Color>() {
             @Override
-            public void handle(ActionEvent event) {
-                if (txtExportFile.getLength() == 0){
-                    return;
-                }
-                if (cmbExportFormat.getSelectionModel().getSelectedIndex() == 0){
-                    SurfaceParser.exportSTLText(txtExportFile.getText() + ".stl");
-                }
-                else if (cmbExportFormat.getSelectionModel().getSelectedIndex() == 1){
-                    SurfaceParser.exportOBJ(txtExportFile.getText() + ".obj", (char)15);
+            public void changed(ObservableValue<? extends Color> observable, Color oldValue, Color newValue) {
+                if (chkUseMonoColor.isSelected()){
+                    MainWindow.mainWindow.changeColor(0, (float) monoColorPick.getValue().getRed(), (float) monoColorPick.getValue().getGreen(), (float) monoColorPick.getValue().getBlue());
+                    MainWindow.mainWindow.changeColor(1, (float) monoColorPick.getValue().getRed(), (float) monoColorPick.getValue().getGreen(), (float) monoColorPick.getValue().getBlue());
+                    MainWindow.mainWindow.changeColor(2, (float) monoColorPick.getValue().getRed(), (float) monoColorPick.getValue().getGreen(), (float) monoColorPick.getValue().getBlue());
                 }
             }
         });
 
-        btnTriangulate.setOnAction(new EventHandler<ActionEvent>() {
+        btnResetColors.setOnAction(new EventHandler<ActionEvent>() {
             @Override
             public void handle(ActionEvent event) {
-                btnTriangulate.disableProperty().set(true);
+                atomColorPick.setValue(Color.rgb(204, 102, 51));
+                triangleColorPick.setValue(Color.rgb(31, 143, 0));
+                torusColorPick.setValue(Color.rgb(51, 77, 179));
+                monoColorPick.setValue(atomColorPick.getValue());
+            }
+        });
+        chkUseMonoColor.selectedProperty().addListener(new ChangeListener<Boolean>() {
+            @Override
+            public void changed(ObservableValue<? extends Boolean> observable, Boolean oldValue, Boolean newValue) {
+                if (MainWindow.mainWindow != null) {
+                    if (newValue.booleanValue()) {
+                        if (MainWindow.mainWindow != null) {
+                            MainWindow.mainWindow.changeColor(0, (float) monoColorPick.getValue().getRed(), (float) monoColorPick.getValue().getGreen(), (float) monoColorPick.getValue().getBlue());
+                            MainWindow.mainWindow.changeColor(1, (float) monoColorPick.getValue().getRed(), (float) monoColorPick.getValue().getGreen(), (float) monoColorPick.getValue().getBlue());
+                            MainWindow.mainWindow.changeColor(2, (float) monoColorPick.getValue().getRed(), (float) monoColorPick.getValue().getGreen(), (float) monoColorPick.getValue().getBlue());
+                        }
+                    } else {
+                        MainWindow.mainWindow.changeColor(0, (float) atomColorPick.getValue().getRed(), (float) atomColorPick.getValue().getGreen(), (float) atomColorPick.getValue().getBlue());
+                        MainWindow.mainWindow.changeColor(1, (float) triangleColorPick.getValue().getRed(), (float) triangleColorPick.getValue().getGreen(), (float) triangleColorPick.getValue().getBlue());
+                        MainWindow.mainWindow.changeColor(2, (float) torusColorPick.getValue().getRed(), (float) torusColorPick.getValue().getGreen(), (float) torusColorPick.getValue().getBlue());
+
+                    }
+                }
+            }
+        });
+
+
+        btnExport.setOnAction(new EventHandler<ActionEvent>() {
+            @Override
+            public void handle(ActionEvent event) {
+                FileChooser fch = new FileChooser();
+                fch.setTitle("Save mesh as");
+                btnExport.setText("Exporting...");
+                btnExport.setStyle("-fx-background-color: orange");
+                File f = fch.showSaveDialog(root);
+                if (f == null){
+                    btnExport.setText("Export");
+                    btnExport.setStyle("");
+                    return;
+                }
+                if (cmbExportFormat.getSelectionModel().getSelectedIndex() == 0){
+                    SurfaceParser.exportSTLText(f.toString());
+                } else if (cmbExportFormat.getSelectionModel().getSelectedIndex() == 1){
+                    SurfaceParser.exportOBJ(f.toString(), (char)15);
+                }
+                btnExport.setStyle("-fx-background-color: greenyellow");
+                btnExport.setText("Saved");
+                Runnable r = new Runnable() {
+                    @Override
+                    public void run() {
+                        long now = System.currentTimeMillis();
+                        while (System.currentTimeMillis() < now + 2000) {
+                        }
+                        Platform.runLater(new Runnable() {
+                            @Override
+                            public void run() {
+                                btnExport.setText("Export");
+                                btnExport.setStyle("");
+                            }
+                        });
+                    }
+                };
+                (new Thread(r)).start();
+            }
+        });
+
+        btnRemesh.setOnAction(new EventHandler<ActionEvent>() {
+            @Override
+            public void handle(ActionEvent event) {
+                btnRemesh.disableProperty().set(true);
                 SesConfig.edgeLimit = spinnerEdgeLength.getValue();
                 SurfaceParser.remesh();
             }
         });
-        //txtFolder.setPromptText("Directory with atoms, rectangles, triangles, info JSON files");
         txtFolder.setOnAction(new EventHandler<ActionEvent>() {
             @Override
             public void handle(ActionEvent event) {
                 File f = new File(txtFolder.getText());
                 if (!f.exists() || !f.isDirectory()){
-                    //txtFolder.setText("No valid directory entered");
                     scrMainPane.requestFocus();
                     txtFolder.setPromptText("No valid directory entered");
                     return;
@@ -216,33 +262,16 @@ public class MainPanelController {
                 startParsingJSON(txtFolder.getText());
             }
         });
-        /*txtConvexPatch.textProperty().addListener(new ChangeListener<String>() {
-            @Override
-            public void changed(ObservableValue<? extends String> observable, String oldValue, String newValue) {
-                char last = newValue.charAt(newValue.length() - 1);
-                if (oldValue.length() == 0 && !Character.isDigit(last)){
-                    txtConvexPatch.setText(""); //TO DO - make sure no exceptions are thrown dummy!
-                    return;
-                }
-                if (!Character.isDigit(last)){
-                    txtConvexPatch.setText(oldValue);
-                }
-            }
-        });*/
         txtConvexPatch.setOnAction(new EventHandler<ActionEvent>() {
             @Override
             public void handle(ActionEvent event) {
                 try {
-                    /*int atomId = Integer.parseInt(txtConvexPatch.getText());
-                    if (atomId >= 0 && atomId < Main.convexPatches.size()){
-                        MainPanel.atomView.selectedAtom.set(atomId);
-                    }*/
                     String[] ids = txtConvexPatch.getText().split(",");
                     List<Integer> ints = new ArrayList<>();
                     for (String id : ids){
                         ints.add(Integer.parseInt(id));
                     }
-                    MainPanel.atomView.selectConvexPatchesByIDs(ints);
+                    MainPanel.mainView.selectConvexPatchesByIDs(ints);
                 } catch (NumberFormatException e){
                     e.printStackTrace();
                 }
@@ -257,24 +286,12 @@ public class MainPanelController {
                     for (String id : ids){
                         ints.add(Integer.parseInt(id));
                     }
-                    MainPanel.atomView.selectToriPatchesByIDs(ints);
+                    MainPanel.mainView.selectToriPatchesByIDs(ints);
                 } catch (NumberFormatException e){
                     e.printStackTrace();
                 }
             }
         });
-        /*root.widthProperty().addListener(new ChangeListener<Number>() {
-            @Override
-            public void changed(ObservableValue<? extends Number> observable, Number oldValue, Number newValue) {
-                anchScrAnchor.setPrefWidth(newValue.doubleValue());
-            }
-        });
-        root.heightProperty().addListener(new ChangeListener<Number>() {
-            @Override
-            public void changed(ObservableValue<? extends Number> observable, Number oldValue, Number newValue) {
-                anchScrAnchor.setPrefHeight(newValue.doubleValue());
-            }
-        });*/
         scrMainPane.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
         scrMainPane.widthProperty().addListener(new ChangeListener<Number>() {
             @Override
@@ -288,51 +305,17 @@ public class MainPanelController {
                 anchScrAnchor.setPrefHeight(newValue.doubleValue());
             }
         });
-        /*sldEdgeAngle.valueProperty().addListener(new ChangeListener<Number>() {
-            @Override
-            public void changed(ObservableValue<? extends Number> observable, Number oldValue, Number newValue) {
-                if (updateEdgeAngle){
-                    SesConfig.minAlpha = newValue.doubleValue();
-                    updateEdgeAngle = false;
-                    txtEdgeAngle.setText(Double.toString(SesConfig.minAlpha));
-                } else {
-                    updateEdgeAngle = true;
-                }
-            }
-        });
-        txtEdgeAngle.textProperty().addListener(new ChangeListener<String>() {
-            @Override
-            public void changed(ObservableValue<? extends String> observable, String oldValue, String newValue) {
-                if (updateEdgeAngle){
-                    SesConfig.minAlpha = Double.parseDouble(newValue);
-                    updateEdgeAngle = false;
-                    sldEdgeAngle.setValue(SesConfig.minAlpha);
-                } else {
-                    updateEdgeAngle = true;
-                }
-            }
-        });*/
-        spinnerEdgeAngle.valueProperty().addListener(new ChangeListener<Double>() {
-            @Override
-            public void changed(ObservableValue<? extends Double> observable, Double oldValue, Double newValue) {
-                if (newValue <= 180 && newValue > 20){
-                    SesConfig.minAlpha = newValue;
-                } else {
-
-                }
-            }
-        });
         spinnerEdgeLength.valueProperty().addListener(new ChangeListener<Double>() {
             @Override
             public void changed(ObservableValue<? extends Double> observable, Double oldValue, Double newValue) {
+                if (!remeshPossible){
+                    return;
+                }
                 if (newValue > 0.01 && newValue < 4){
-                    //Surface.maxEdgeLen = newValue;
-                    //SesConfig.distTolerance = 0.4 * Surface.maxEdgeLen;
-                    //SesConfig.edgeLimit = newValue;
                     if (Math.abs(SesConfig.edgeLimit - newValue) > 0.0){
-                        btnTriangulate.disableProperty().set(false);
+                        btnRemesh.disableProperty().set(false);
                     } else {
-                        btnTriangulate.disableProperty().set(true);
+                        btnRemesh.disableProperty().set(true);
                     }
                 }
             }
@@ -340,28 +323,21 @@ public class MainPanelController {
         SpinnerValueFactory<Double> edgeLenFactory = new SpinnerValueFactory.DoubleSpinnerValueFactory(0.2, 0.9, SesConfig.edgeLimit, 0.05);
         spinnerEdgeLength.setValueFactory(edgeLenFactory);
         SpinnerValueFactory<Double> maxAngleFactory = new SpinnerValueFactory.DoubleSpinnerValueFactory(20, 175, 75, 5);
-        spinnerEdgeAngle.setValueFactory(maxAngleFactory);
-        spinnerEdgeAngle.getValueFactory().setValue((double)120);
         txtConcavePatch.setOnAction(new EventHandler<ActionEvent>() {
             @Override
             public void handle(ActionEvent event) {
                 try {
-                    /*int concId = Integer.parseInt(txtConcavePatch.getText());
-                    if (concId >= 0 && concId < Main.triangles.size()){
-                        MainPanel.atomView.selectedConcaveP.set(concId);
-                    }*/
                     String[] ids = txtConcavePatch.getText().split(",");
                     List<Integer> ints = new ArrayList<>();
                     for (String id : ids){
                         ints.add(Integer.parseInt(id));
                     }
-                    MainPanel.atomView.selectConcavePatchesByIDs(ints);
+                    MainPanel.mainView.selectConcavePatchesByIDs(ints);
                 } catch (NumberFormatException e){
                     e.printStackTrace();
                 }
             }
         });
-        System.out.println("FONT SIZE: " + Font.getDefault().getSize());
         chkPinToView.setDisable(true);
         chkPinToView.setText("Pin to main view");
         chkPinToView.setOnAction(new EventHandler<ActionEvent>() {
@@ -371,7 +347,7 @@ public class MainPanelController {
                 Platform.runLater(new Runnable() {
                     @Override
                     public void run() {
-                        MainPanel.atomView.isPinned.setValue(MainPanel.pinnedToView);
+                        MainPanel.mainView.isPinned.setValue(MainPanel.pinnedToView);
                     }
                 });
             }
@@ -380,18 +356,18 @@ public class MainPanelController {
         chkShowProbe.setOnAction(new EventHandler<ActionEvent>() {
             @Override
             public void handle(ActionEvent event) {
-                if (MainPanel.atomView != null) {MainPanel.atomView.showProbe(chkShowProbe.isSelected());}
+                if (MainPanel.mainView != null) {MainPanel.mainView.showProbe(chkShowProbe.isSelected());}
             }
         });
         sldProbeAlpha.setDisable(true);
         sldProbeAlpha.valueProperty().addListener(new ChangeListener<Number>() {
             @Override
             public void changed(ObservableValue<? extends Number> observable, Number oldValue, Number newValue) {
-                if (MainPanel.atomView == null){
+                if (MainPanel.mainView == null){
                     return;
                 }
                 float v = newValue.intValue() / 100.f;
-                MainPanel.atomView.setProbeAlpha(v);
+                MainPanel.mainView.setProbeAlpha(v);
             }
         });
         cmbResolution.getItems().add("800x600");
@@ -405,8 +381,8 @@ public class MainPanelController {
             public void handle(ActionEvent event) {
                 String[] dims = cmbResolution.getSelectionModel().getSelectedItem().split("x");
                 try {
-                    if (MainPanel.atomView != null) {
-                        MainPanel.atomView.window.setSize(Integer.parseInt(dims[0]), Integer.parseInt(dims[1]));
+                    if (MainPanel.mainView != null) {
+                        MainPanel.mainView.window.setSize(Integer.parseInt(dims[0]), Integer.parseInt(dims[1]));
                     }
                 } catch (NumberFormatException e){
                     e.printStackTrace();
@@ -415,8 +391,6 @@ public class MainPanelController {
         });
         lblProbeRadius.setText("-");
         MainPanel.controlPanel = this;
-        //lblProbeRadius.textProperty().bind(probeRadius.asString());
-        //lblAtomCount.textProperty().bind(atomCount.asString());
         probeRadius.addListener(new ChangeListener<Number>() {
             @Override
             public void changed(ObservableValue<? extends Number> observable, Number oldValue, Number newValue) {
@@ -424,57 +398,51 @@ public class MainPanelController {
                 Surface.probeRadius.set(Double.doubleToLongBits(newValue.doubleValue()));
             }
         });
-        cmbExportFormat.getItems().add("STL binary");
+        cmbExportFormat.getItems().add("STL text");
         cmbExportFormat.getItems().add("Wavefront OBJ");
         cmbExportFormat.getSelectionModel().select(0);
         root.setMinWidth(320);
-        //tlpAppSettings.setPrefHeight(224);
-        //tlpAppSettings.setExpanded(true);
-        tlpMesh.setPrefHeight(280);
+        tlpMesh.setPrefHeight(tlpMeshHeight);
         tlpMesh.setExpanded(true);
-        //vboSettExp.setPrefHeight(300 + 126 + 40);
-        vboSettExp.setPrefHeight(600);
-        vboSettExp.setMaxHeight(224 + 280 + 114 + 40 + 126);
+        vboSettExp.setPrefHeight(620);
+        vboSettExp.setMaxHeight(tlpAppSettingsHeight + tlpMeshHeight + tlpExportHeight + 70 + tbpHeight);
         tlpAppSettings.expandedProperty().addListener(new ChangeListener<Boolean>() {
             @Override
             public void changed(ObservableValue<? extends Boolean> observable, Boolean oldValue, Boolean newValue) {
-                vboSettExp.setPrefHeight(vboSettExp.getPrefHeight() + ((newValue) ? 1 : -1) * (224));
-                tlpAppSettings.setPrefHeight((newValue) ? 224 : 0);
+                vboSettExp.setPrefHeight(vboSettExp.getPrefHeight() + ((newValue) ? 1 : -1) * (tlpAppSettingsHeight));
+                tlpAppSettings.setPrefHeight((newValue) ? tlpAppSettingsHeight : 0);
                 if (tlpExclusiveExpand){
                     tlpExclusiveExpand = false;
                 } else {
                     tlpExclusiveExpand = true;
-                    //tlpExport.setExpanded(false);
                 }
             }
         });
-        //tlpExport.get
         tlpExport.expandedProperty().addListener(new ChangeListener<Boolean>() {
             @Override
             public void changed(ObservableValue<? extends Boolean> observable, Boolean oldValue, Boolean newValue) {
-                vboSettExp.setPrefHeight(vboSettExp.getPrefHeight() + ((newValue) ? 1 : -1) * (114));
-                tlpExport.setPrefHeight((newValue) ? 114 : 0);
+                vboSettExp.setPrefHeight(vboSettExp.getPrefHeight() + ((newValue) ? 1 : -1) * (tlpExportHeight));
+                tlpExport.setPrefHeight((newValue) ? tlpExportHeight : 0);
                 if (tlpExclusiveExpand){
                     tlpExclusiveExpand = false;
                 } else {
                     tlpExclusiveExpand = true;
-                    //tlpAppSettings.setExpanded(false);
                 }
             }
         });
         tlpMesh.expandedProperty().addListener(new ChangeListener<Boolean>() {
             @Override
             public void changed(ObservableValue<? extends Boolean> observable, Boolean oldValue, Boolean newValue) {
-                vboSettExp.setPrefHeight(vboSettExp.getPrefHeight() + ((newValue) ? 1 : -1) * 280);
-                tlpMesh.setPrefHeight((newValue) ? 280 : 0);
+                vboSettExp.setPrefHeight(vboSettExp.getPrefHeight() + ((newValue) ? 1 : -1) * tlpMeshHeight);
+                tlpMesh.setPrefHeight((newValue) ? tlpMeshHeight: 0);
             }
         });
         sldMouseSensitivity.setDisable(true);
         sldMouseSensitivity.valueProperty().addListener(new ChangeListener<Number>() {
             @Override
             public void changed(ObservableValue<? extends Number> observable, Number oldValue, Number newValue) {
-                if (MainPanel.atomView != null){
-                    MainPanel.atomView.setMouseSensitivity(newValue.floatValue());
+                if (MainPanel.mainView != null){
+                    MainPanel.mainView.setMouseSensitivity(newValue.floatValue());
                 }
             }
         });
@@ -487,6 +455,17 @@ public class MainPanelController {
                 }
             }
         });
+        sldAmbientStrength.setValue(0.2);
+        sldAmbientStrength.setMax(1.0);
+        sldAmbientStrength.setMin(0.05);
+        sldAmbientStrength.valueProperty().addListener(new ChangeListener<Number>() {
+            @Override
+            public void changed(ObservableValue<? extends Number> observable, Number oldValue, Number newValue) {
+                if (MainWindow.mainWindow != null){
+                    MainWindow.mainWindow.setAmbientStrength(newValue.floatValue());
+                }
+            }
+        });
     }
 
     public void setCheckPinned(boolean v){
@@ -494,38 +473,33 @@ public class MainPanelController {
     }
 
     private void startParsingJSON(String folder){
-        btnTriangulate.disableProperty().set(true);
+        btnRemesh.disableProperty().set(true);
         SesConfig.edgeLimit = spinnerEdgeLength.getValue();
         FXMLLoader loader = new FXMLLoader();
-        loader.setLocation(MainPanel.class.getResource("/fxml/AtomLoadingView.fxml"));
+        loader.setLocation(MainPanel.class.getResource("/fxml/SESLoadingView.fxml"));
         try {
             String raw = SurfaceParser.loadFile(folder + "/info.json");
             SurfaceParser.parseSesConfig(raw);
             lblAtomCount.setText(Integer.toString(SesConfig.atomCount));
             lblProbeRadius.setText(Double.toString(SesConfig.probeRadius));
             Surface.probeRadius.set(Double.doubleToLongBits(SesConfig.probeRadius));
-            AnchorPane anch = (AnchorPane) loader.load();
+            AnchorPane anch =  loader.load();
             Scene scene = new Scene(anch);
             Stage stage = new Stage();
             stage.setScene(scene);
-            AtomLoadingController.stage = stage;
-            stage.setTitle("Processing atoms");
-            AtomLoadingController.folder = folder + "/";
+            SESLoadingController.stage = stage;
+            stage.setTitle("Processing input data");
+            SESLoadingController.folder = folder + "/";
             stage.setResizable(false);
             stage.initOwner(root);
             stage.initModality(Modality.APPLICATION_MODAL);
             stage.show();
-            AtomLoadingController.task.setOnSucceeded(new EventHandler<WorkerStateEvent>() {
+            SESLoadingController.task.setOnSucceeded(new EventHandler<WorkerStateEvent>() {
                 @Override
                 public void handle(WorkerStateEvent event) {
-                    //MainPanel.atomView.freeGLResources();
                     sldProbeAlpha.setDisable(false);
                     chkShowProbe.setDisable(false);
-                    //MainPanel.atomView.setup();
-                    //MainPanel.atomView.sendPatchesLists(Surface.convexPatches, Surface.triangles);
-                    //MainPanel.atomView.sendConvexPatchList(Main.convexPatches);
-                    //MainPanel.atomView.sendConcavePatchList(Main.triangles);
-                    MainPanel.atomView.selectedConcaveP.addListener(new ChangeListener<Number>() {
+                    MainPanel.mainView.selectedConcaveP.addListener(new ChangeListener<Number>() {
                         @Override
                         public void changed(ObservableValue<? extends Number> observable, Number oldValue, Number newValue) {
                             Platform.runLater(new Runnable() {
@@ -536,7 +510,7 @@ public class MainPanelController {
                             });
                         }
                     });
-                    MainPanel.atomView.selectedAtom.addListener(new ChangeListener<Number>() {
+                    MainPanel.mainView.selectedAtom.addListener(new ChangeListener<Number>() {
                         @Override
                         public void changed(ObservableValue<? extends Number> observable, Number oldValue, Number newValue) {
                             Platform.runLater(new Runnable() {
@@ -547,7 +521,7 @@ public class MainPanelController {
                             });
                         }
                     });
-                    MainPanel.atomView.selectedToriP.addListener(new ChangeListener<Number>() {
+                    MainPanel.mainView.selectedToriP.addListener(new ChangeListener<Number>() {
                         @Override
                         public void changed(ObservableValue<? extends Number> observable, Number oldValue, Number newValue) {
                             Platform.runLater(new Runnable() {
@@ -558,29 +532,24 @@ public class MainPanelController {
                             });
                         }
                     });
-                    MainPanel.atomView.changeColor(0, (float)atomColorPick.getValue().getRed(), (float)atomColorPick.getValue().getGreen(), (float)atomColorPick.getValue().getBlue());
-                    MainPanel.atomView.changeColor(1, (float)triangleColorPick.getValue().getRed(), (float)triangleColorPick.getValue().getGreen(), (float)triangleColorPick.getValue().getBlue());
-                    MainPanel.atomView.changeColor(2, (float)torusColorPick.getValue().getRed(), (float)torusColorPick.getValue().getGreen(), (float)torusColorPick.getValue().getBlue());
+                    sldAmbientStrength.setDisable(false);
+                    atomColorPick.setDisable(false);
+                    triangleColorPick.setDisable(false);
+                    torusColorPick.setDisable(false);
+                    monoColorPick.setDisable(false);
+                    btnResetColors.setDisable(false);
+                    chkUseMonoColor.setDisable(false);
+                    MainPanel.mainView.changeColor(0, (float)atomColorPick.getValue().getRed(), (float)atomColorPick.getValue().getGreen(), (float)atomColorPick.getValue().getBlue());
+                    MainPanel.mainView.changeColor(1, (float)triangleColorPick.getValue().getRed(), (float)triangleColorPick.getValue().getGreen(), (float)triangleColorPick.getValue().getBlue());
+                    MainPanel.mainView.changeColor(2, (float)torusColorPick.getValue().getRed(), (float)torusColorPick.getValue().getGreen(), (float)torusColorPick.getValue().getBlue());
                     chkPinToView.setDisable(false);
                     cmbResolution.setDisable(false);
                     chkPinToView.fire();
                     sldMouseSensitivity.setDisable(false);
-                    //cmbResolution.getSelectionModel().select(1);
                     stage.close();
                 }
             });
-            AtomLoadingController.work();
-            /*if (MainPanel.atomView != null) {
-                MainPanel.atomView.close();
-            }
-            MainPanel.atomView = new MainWindow();
-            MainPanel.atomView.setup();
-            MainPanel.atomView.sendConvexPatchList(Main.convexPatches);
-            MainPanel.atomView.controlPanel = root;
-            chkPinToView.setDisable(false);
-            cmbResolution.setDisable(false);
-            chkPinToView.fire();*/
-
+            SESLoadingController.work();
         } catch (IOException e){
             e.printStackTrace();
         }
@@ -602,7 +571,6 @@ public class MainPanelController {
             return false;
         }
         String[] files = f.list();
-        //String[] jsons = new String[]{"atoms.json", "rectangles.json", "triangles.json", "info.json"};
         List<String> jsons = new ArrayList<>();
         jsons.add("atoms.dat");
         jsons.add("rectangles.dat");
@@ -620,5 +588,18 @@ public class MainPanelController {
             return false;
         }
         return true;
+    }
+
+    public static void setBtnRemeshPossible(boolean val){
+        cont.remeshPossible = val;
+    }
+
+    public static void setBtnExportEnabled(boolean val){
+        Platform.runLater(new Runnable() {
+            @Override
+            public void run() {
+                cont.btnExport.disableProperty().set(!val);
+            }
+        });
     }
 }

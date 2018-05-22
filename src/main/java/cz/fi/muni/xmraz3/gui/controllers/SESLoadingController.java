@@ -15,7 +15,7 @@ import javafx.scene.control.Label;
 import javafx.scene.control.ProgressBar;
 import javafx.stage.Stage;
 
-public class AtomLoadingController {
+public class SESLoadingController {
     public static Stage stage;
     public static String folder;
     @FXML
@@ -48,14 +48,14 @@ public class AtomLoadingController {
                         updateMessage("Progress: " + newValue.longValue() + " / " + Surface.convexPatches.size());
                     }
                 });
-                if (MainPanel.atomView == null){
-                    MainPanel.atomView = new MainWindow();
-                    MainPanel.atomView.setup();
-                    MainPanel.atomView.controlPanel = MainPanelController.root;
+                if (MainPanel.mainView == null){
+                    MainPanel.mainView = new MainWindow();
+                    MainPanel.mainView.setup();
+                    MainPanel.mainView.controlPanel = MainPanelController.root;
                 }
-                MainPanel.atomView.stopRendering(true);
-                MainPanel.atomView.requestFreeResources();
-                while(!MainPanel.atomView.getResourcesFreed());
+                MainPanel.mainView.stopRendering(true);
+                MainPanel.mainView.requestFreeResources();
+                while(!MainPanel.mainView.getResourcesFreed());
                 SurfaceParser.ses_start(folder);
                 return null;
             }

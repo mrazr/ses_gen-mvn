@@ -95,12 +95,7 @@ public class Vector {
     }
 
     public static Vector addVectors(Vector v1, Vector v2) {
-        Vector viktor = v1;
-        Vector vektor = v2;
-        Vector pektor = new Vector(viktor.getX() + vektor.getX(), viktor.getY() + vektor.getY(), viktor.getZ() + vektor.getZ());
-        //pektor.multiply(0.5);
-        //return new Vector(v1.getX() + v2.getX(), v1.getY() + v2.getY(), v1.getZ() + v2.getZ());
-        return pektor;
+        return  new Vector(v1.getX() + v1.getX(), v1.getY() + v1.getY(), v1.getZ() + v1.getZ());
     }
 
     public static Vector subtractVectors(Vector u, Vector v){
@@ -159,7 +154,6 @@ public class Vector {
         int first = -1;
         int second = -1;
         boolean twoZeroes = false;
-        //double[] data = this.getData();
         data[0] = this.x;
         data[1] = this.y;
         data[2] = this.z;
@@ -192,7 +186,6 @@ public class Vector {
             first = zero;
         }
         double tmp = -data[first];
-        //double[] ndata = new double[3];
         ndata[0] = data[0];
         ndata[1] = data[1];
         ndata[2] = data[2];
@@ -204,10 +197,9 @@ public class Vector {
                 break;
             }
         }
-        //Vector v = new Vector(ndata);
         in.changeVector(ndata[0], ndata[1], ndata[2]);
         if (Math.abs(in.dotProduct(this)) > 0.0001){
-            System.out.println("something wrong");
+            System.out.println("in.dotProduct(this) > 0.0001");
         }
         return in;
     }
@@ -233,14 +225,6 @@ public class Vector {
         return this;
     }
 
-    /*@Override
-    public String toString() {
-        return "Vector{" +
-                "x=" + x +
-                ", y=" + y +
-                ", z=" + z +
-                '}';
-    }*/
     @Override
     public String toString() {
         return "" + x + " " + y + " " + z;
