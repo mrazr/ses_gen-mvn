@@ -616,6 +616,11 @@ public class ArcUtil {
     public static void resetArcs(SphericalPatch sp){
         sp.vertices.clear();
         sp.nextVertexID = 0;
+        if (sp.valid || sp.boundaries.size() == 0) {
+            for (Arc a : sp.arcs) {
+                resetArc(a);
+            }
+        }
         for (Boundary b : sp.boundaries){
             for (Arc a : b.arcs){
                 resetArc(a);

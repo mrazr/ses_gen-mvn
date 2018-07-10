@@ -14,6 +14,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 public class MeshGeneration {
     private static int THREAD_COUNT = 0;
+    private final static Object lock = new Object();
     public static MeshGeneration instance = new MeshGeneration();
     private static AtomicInteger threads_done = new AtomicInteger(0);
 
@@ -45,7 +46,6 @@ public class MeshGeneration {
     }
 
     private static void generateMesh(int start, int end, List<SphericalPatch> patches, int threadIdx) {
-        free.set(false);
         AdvancingFrontMethod afm = afms[threadIdx];
         long startTime = System.currentTimeMillis();
         for (int i = start; i < end; ++i) {
@@ -77,7 +77,6 @@ public class MeshGeneration {
             } else {
                 concaveMeshTime = (endTime - startTime);
             }
-            free.set(true);
             if (!patches.get(0).convexPatch){
                 for (int i = 0; i < THREAD_COUNT; ++i){
                     trianglesGenerated.addAndGet(_triangles[i]);
@@ -87,6 +86,10 @@ public class MeshGeneration {
                 for (int i = 0; i < afms.length; ++i){
                     afms[i] = null;
                 }
+            }
+            free.set(true);
+            synchronized (lock){
+                lock.notify();
             }
         }
     }
@@ -120,6 +123,7 @@ public class MeshGeneration {
         }
         toriMeshTime = (endTime - startTime);
         MeshGeneration.threads_done.set(0);
+        free.set(false);
         int step = SesConfig.atomCount / THREAD_COUNT;
         for (int i = 0; i < THREAD_COUNT; ++i){
             final int start = i;
@@ -132,9 +136,18 @@ public class MeshGeneration {
             };
             (new Thread(r)).start();
         }
-        while (!MeshGeneration.free.get()){}
+        synchronized (lock){
+            while (!free.get()){
+                try {
+                    lock.wait();
+                } catch (Exception e){
+                    e.printStackTrace();
+                }
+            }
+        }
         MeshGeneration.threads_done.set(0);
         step = SesConfig.trianglesCount / THREAD_COUNT;
+        free.set(false);
         for (int i = 0; i < THREAD_COUNT; ++i){
             final int start = i;
             final int _step = step;
@@ -146,7 +159,15 @@ public class MeshGeneration {
             };
             (new Thread(r)).start();
         }
-        while (!MeshGeneration.free.get()){}
+        synchronized (lock){
+            while (!free.get()){
+                try {
+                    lock.wait();
+                } catch (Exception e){
+                    e.printStackTrace();
+                }
+            }
+        }
     }
 
     private static List<Point> _top = new ArrayList<>(17);

@@ -28,6 +28,13 @@ import java.util.*;
  */
 public class SurfaceParser {
 
+    private final static Object lock = new Object();
+
+    public static void releaseLock(){
+        synchronized (lock){
+            lock.notify();
+        }
+    }
     //these are used throughout the construction of circular arcs of spherical patches
     private static Vector probeMid = new Vector(0, 0, 0);
     private static Vector v1 = new Vector(0, 0, 0);
@@ -550,7 +557,6 @@ public class SurfaceParser {
                 MainWindow.mainWindow.sendPatchesLists(Surface.convexPatches, Surface.triangles);
             }
             MeshGeneration.startMeshing();
-            while (!MeshGeneration.finished.get()){}
             if (SesConfig.useGUI){
                 MainWindow.mainWindow.pushTori();
                 MainWindow.mainWindow.pushConvex();
@@ -560,7 +566,6 @@ public class SurfaceParser {
 
             if (SesConfig.objFile != null || SesConfig.stlFile != null){
                 fillCommonVertices();
-                while (!MeshGeneration.finished.get()){}
                 if (SesConfig.objFile != null){
                     exportOBJ(SesConfig.objFile, (char)7);
                 }
@@ -593,7 +598,6 @@ public class SurfaceParser {
     public static void remesh(){
         MainWindow.mainWindow.requestFreeResources();
         MainPanelController.setBtnRemeshPossible(false);
-        while (!MainWindow.mainWindow.getResourcesFreed()){}
         MeshGeneration.reset();
         for (SphericalPatch sp : Surface.convexPatches){
             ArcUtil.resetArcs(sp);
@@ -604,8 +608,17 @@ public class SurfaceParser {
             sp.meshed = false;
         }
         ArcUtil.refineArcsOnSphericalPatches();
-        MainWindow.mainWindow.sendPatchesLists(Surface.convexPatches, Surface.triangles);
         MeshGeneration.startMeshing();
+        synchronized (lock){
+            while (!MainWindow.mainWindow.getResourcesFreed()){
+                try {
+                    lock.wait();
+                } catch (Exception e){
+                    e.printStackTrace();
+                }
+            }
+        }
+        MainWindow.mainWindow.sendPatchesLists(Surface.convexPatches, Surface.triangles);
         MainWindow.mainWindow.pushConvex();
         MainWindow.mainWindow.pushConcave();
         MainWindow.mainWindow.pushTori();

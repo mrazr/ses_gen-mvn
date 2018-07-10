@@ -14,6 +14,7 @@ import com.jogamp.opengl.util.GLBuffers;
 import com.jogamp.opengl.util.PMVMatrix;
 import cz.fi.muni.xmraz3.SesConfig;
 import cz.fi.muni.xmraz3.Surface;
+import cz.fi.muni.xmraz3.SurfaceParser;
 import cz.fi.muni.xmraz3.gui.controllers.MainPanelController;
 import cz.fi.muni.xmraz3.math.Point;
 import cz.fi.muni.xmraz3.math.Vector;
@@ -77,6 +78,7 @@ public class MainWindow implements GLEventListener, KeyListener, MouseListener{
     private boolean selectedExclusiveRender = false;
 
     private boolean drawFaces = true;
+    private int drawMode = 0; // 0 -> only faces, 1 -> only lines, 2 -> faces with edges atop
     private boolean step = true;
 
     private List<SphericalPatch> concavePatchList;
@@ -631,15 +633,6 @@ public class MainWindow implements GLEventListener, KeyListener, MouseListener{
     @Override
     public void display(GLAutoDrawable glAutoDrawable) {
         gl.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT);
-        if (cullFaces){
-            gl.glEnable(GL.GL_CULL_FACE);
-        } else {
-            gl.glDisable(GL.GL_CULL_FACE);
-        }
-        if (drawModeUpdate){
-            gl.glPolygonMode(GL4.GL_FRONT_AND_BACK, (drawFaces) ? GL4.GL_FILL : GL4.GL_LINE);
-            drawModeUpdate = false;
-        }
         updateCamera();
         if (!stopRendering.get()){
             if (mouseSelect && moved){
@@ -1289,11 +1282,26 @@ public class MainWindow implements GLEventListener, KeyListener, MouseListener{
 
         if (keyEvent.getKeyCode() == KeyEvent.VK_K){
             cullFaces = !cullFaces;
+            GLRunnable t = (GLAutoDrawable autoDrawable) -> {
+                if (cullFaces){
+                    gl.glEnable(GL.GL_CULL_FACE);
+                } else {
+                    gl.glDisable(GL.GL_CULL_FACE);
+                }
+                return true;
+            };
+            window.invoke(false, t);
         }
 
         if (keyEvent.getKeyCode() == KeyEvent.VK_F){
-            drawFaces = !drawFaces;
-            drawModeUpdate = true;
+            drawMode = (drawMode + 1) % 2; // for now only 'only' modes (face-only, edge-only)
+             if (drawMode < 2) {
+                GLRunnable t = (GLAutoDrawable drawable) -> {
+                    gl.glPolygonMode(GL4.GL_FRONT_AND_BACK, (drawMode == 0) ? GL4.GL_FILL : GL4.GL_LINE);
+                    return true;
+                };
+                window.invoke(false, t);
+            }
         }
 
         if (keyEvent.getKeyCode() == KeyEvent.VK_L){
@@ -1646,6 +1654,8 @@ public class MainWindow implements GLEventListener, KeyListener, MouseListener{
         gl.glGenBuffers(2, lineVbo, 0);
         gl.glGenBuffers(2, lineEbo, 0);
         resourcesFreed.set(true);
+        SurfaceParser.releaseLock();
+        selectedExclusiveRender = false;
         if (SesConfig.verbose) {
             System.out.println("GPU resources freed");
         }
